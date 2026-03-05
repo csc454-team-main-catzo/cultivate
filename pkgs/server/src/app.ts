@@ -9,6 +9,8 @@ import listingRoutes from './routes/listings.js'
 import produceItemRoutes from './routes/produce-items.js'
 import userRoutes from './routes/users.js'
 import chatRoutes from './routes/chats.js'
+import qualityGateRoutes from './routes/qualityGate.js'
+import ordersRoutes from './routes/orders.js'
 
 type AppBindings = {
   Variables: any
@@ -79,6 +81,8 @@ app.route('/api/listings', listingRoutes)
 app.route('/api', imageRoutes)
 app.route('/api', produceItemRoutes)
 app.route('/api/chat', chatRoutes)
+app.route('/', qualityGateRoutes)
+app.route('/', ordersRoutes)
 
 app.get(
   '/openapi.json',

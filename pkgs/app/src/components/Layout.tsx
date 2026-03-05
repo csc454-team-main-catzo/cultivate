@@ -37,6 +37,9 @@ export default function Layout() {
                   <Link to="/messages" className={navLinkClass("/messages")}>
                     Messages
                   </Link>
+                  <Link to="/quality-gate" className={navLinkClass("/quality-gate")}>
+                    Receiving
+                  </Link>
                 </div>
               )}
             </div>
