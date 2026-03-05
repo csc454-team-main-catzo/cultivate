@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
+import mongoose from "mongoose";
 import { authMiddleware } from "../middleware/auth.js";
 import GoogleCalendarIntegration from "../models/GoogleCalendarIntegration.js";
 import OAuthState from "../models/OAuthState.js";
@@ -176,5 +177,81 @@ routes.post(
     return c.json({ ok: true, calendarId: updated.calendarId });
   }
 );
+
+// ---- GET /integrations/google/calendar/suggest-window (auth required) ----
+const suggestWindowSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  durationMinutes: z.coerce.number().min(30).max(480).optional(),
+  timeZone: z.string().optional(),
+});
+routes.get("/integrations/google/calendar/suggest-window", authMiddleware(), async (c) => {
+  const userId = c.get("userId") as string;
+  const query = suggestWindowSchema.safeParse({
+    date: c.req.query("date"),
+    durationMinutes: c.req.query("durationMinutes"),
+    timeZone: c.req.query("timeZone"),
+  });
+  if (!query.success) {
+    return c.json({ error: "Invalid query", details: query.error.flatten() }, 400);
+  }
+  const { suggestDeliveryWindows } = await import("../integrations/googleCalendar/service.js");
+  const slots = await suggestDeliveryWindows({
+    userId: new mongoose.Types.ObjectId(userId),
+    date: query.data.date,
+    durationMinutes: query.data.durationMinutes,
+    timeZone: query.data.timeZone,
+  });
+  return c.json({ suggestedWindows: slots });
+});
+
+// ---- POST /integrations/google/gmail/send (auth required) ----
+const sendSupplierEmailSchema = z.object({
+  to: z.string().email(),
+  subject: z.string().min(1),
+  body: z.string(),
+  threadId: z.string().optional(),
+  inReplyTo: z.string().optional(),
+  references: z.string().optional(),
+});
+routes.post(
+  "/integrations/google/gmail/send",
+  authMiddleware(),
+  zValidator("json", sendSupplierEmailSchema, (result, c) => {
+    if (!result.success) return c.json({ error: "Invalid body", details: result.error.flatten() }, 400);
+  }),
+  async (c) => {
+    const userId = c.get("userId") as string;
+    const body = c.req.valid("json");
+    const { sendSupplierEmail } = await import("../integrations/gmail/service.js");
+    const result = await sendSupplierEmail({
+      userId: new mongoose.Types.ObjectId(userId),
+      to: body.to,
+      subject: body.subject,
+      body: body.body,
+      threadId: body.threadId,
+      inReplyTo: body.inReplyTo,
+      references: body.references,
+    });
+    if (!result) {
+      return c.json({ error: "Not connected or token invalid" }, 400);
+    }
+    return c.json({ messageId: result.messageId, threadId: result.threadId });
+  }
+);
+
+// ---- GET /integrations/google/gmail/thread/:threadId (auth required) ----
+routes.get("/integrations/google/gmail/thread/:threadId", authMiddleware(), async (c) => {
+  const userId = c.get("userId") as string;
+  const threadId = c.req.param("threadId");
+  if (!threadId) {
+    return c.json({ error: "Missing threadId" }, 400);
+  }
+  const { getThreadContext } = await import("../integrations/gmail/service.js");
+  const thread = await getThreadContext(new mongoose.Types.ObjectId(userId), threadId);
+  if (!thread) {
+    return c.json({ error: "Not connected or thread not found" }, 400);
+  }
+  return c.json(thread);
+});
 
 export default routes;

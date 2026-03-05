@@ -8,6 +8,16 @@ const CALENDAR_LIST_URL = "https://www.googleapis.com/calendar/v3/users/me/calen
 const CALENDAR_EVENTS_URL = (calendarId: string) =>
   `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
 
+export interface CalendarEventItem {
+  id: string;
+  start?: { dateTime?: string; date?: string };
+  end?: { dateTime?: string; date?: string };
+}
+
+export interface CalendarEventsListResponse {
+  items?: CalendarEventItem[];
+}
+
 export interface TokenResponse {
   access_token: string;
   refresh_token?: string;
@@ -43,14 +53,18 @@ export interface CalendarEventResponse {
 /**
  * Build the Google OAuth authorization URL.
  */
+/** Default OAuth scopes: Calendar (events + read) and Gmail (send + read for supplier thread context). */
+export const DEFAULT_GOOGLE_SCOPES =
+  "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly " +
+  "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly";
+
 export function buildAuthUrl(params: {
   clientId: string;
   redirectUri: string;
   state: string;
   scope?: string;
 }): string {
-  const scope =
-    params.scope ?? "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly";
+  const scope = params.scope ?? DEFAULT_GOOGLE_SCOPES;
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", params.clientId);
   url.searchParams.set("redirect_uri", params.redirectUri);
@@ -180,4 +194,29 @@ export async function updateEvent(
     throw new Error(`Google calendar update event failed: ${res.status} ${text}`);
   }
   return (await res.json()) as CalendarEventResponse;
+}
+
+/**
+ * List events in a time range (RFC3339 timeMin/timeMax).
+ */
+export async function listEvents(
+  accessToken: string,
+  calendarId: string,
+  timeMin: string,
+  timeMax: string
+): Promise<CalendarEventItem[]> {
+  const url = new URL(CALENDAR_EVENTS_URL(calendarId));
+  url.searchParams.set("timeMin", timeMin);
+  url.searchParams.set("timeMax", timeMax);
+  url.searchParams.set("singleEvents", "true");
+  url.searchParams.set("orderBy", "startTime");
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Google calendar list events failed: ${res.status} ${text}`);
+  }
+  const data = (await res.json()) as CalendarEventsListResponse;
+  return data.items ?? [];
 }

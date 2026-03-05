@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   runQualityGate,
   getReceivingBrief,
@@ -7,6 +7,7 @@ import {
   type ReceivingBrief,
   type DailyOrderLineItem,
 } from "../api/qualityGate.js";
+import { suggestDeliveryWindows } from "../api/integrations.js";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useUser } from "../providers/userContext.js";
 
@@ -47,10 +48,36 @@ export default function QualityGate() {
   const [orderDate, setOrderDate] = useState(TODAY);
   const [deliveryStart, setDeliveryStart] = useState("14:00");
   const [deliveryEnd, setDeliveryEnd] = useState("16:00");
+  const [suggestedWindows, setSuggestedWindows] = useState<Array<{ start: string; end: string }> | null>(null);
   const [lineItems, setLineItems] = useState<Array<{ itemDisplayName: string; expectedQty: number; unit: DailyOrderLineItem["unit"] }>>([
     { itemDisplayName: "", expectedQty: 0, unit: "kg" },
   ]);
   const [orderSuccess, setOrderSuccess] = useState<string | null>(null);
+
+  // Pre-calculate delivery windows from the user's Google Calendar for the order date; pre-fill first window.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setSuggestedWindows(null);
+      try {
+        const token = await getAccessTokenSilently();
+        const data = await suggestDeliveryWindows(token, {
+          date: orderDate,
+          durationMinutes: 120,
+        });
+        if (!cancelled && data.suggestedWindows.length > 0) {
+          setSuggestedWindows(data.suggestedWindows);
+          const first = data.suggestedWindows[0];
+          setDeliveryStart(first.start);
+          setDeliveryEnd(first.end);
+        }
+      } catch {
+        if (!cancelled) setSuggestedWindows(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [orderDate, getAccessTokenSilently]);
+
   /** Run quality gate then load the brief so one action shows the full result. */
   async function handleGetBrief() {
     setError(null);
@@ -373,24 +400,53 @@ export default function QualityGate() {
               className="w-full px-3 py-2 rounded-lg border border-earth-300 bg-earth-50 text-earth-900 focus:outline-none focus:ring-2 focus:ring-leaf-400"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-earth-700 mb-1">Delivery window start</label>
-            <input
-              type="time"
-              value={deliveryStart}
-              onChange={(e) => setDeliveryStart(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-earth-300 bg-earth-50 text-earth-900 focus:outline-none focus:ring-2 focus:ring-leaf-400"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-earth-700 mb-1">Delivery window end</label>
-            <input
-              type="time"
-              value={deliveryEnd}
-              onChange={(e) => setDeliveryEnd(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-earth-300 bg-earth-50 text-earth-900 focus:outline-none focus:ring-2 focus:ring-leaf-400"
-            />
-          </div>
+          {suggestedWindows && suggestedWindows.length > 0 ? (
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-earth-700 mb-1">Delivery window (from your calendar)</label>
+              <select
+                value={Math.max(
+                  0,
+                  suggestedWindows.findIndex((w) => w.start === deliveryStart && w.end === deliveryEnd)
+                )}
+                onChange={(e) => {
+                  const i = Number(e.target.value);
+                  const w = suggestedWindows[i];
+                  if (w) {
+                    setDeliveryStart(w.start);
+                    setDeliveryEnd(w.end);
+                  }
+                }}
+                className="w-full px-3 py-2 rounded-lg border border-earth-300 bg-earth-50 text-earth-900 focus:outline-none focus:ring-2 focus:ring-leaf-400"
+              >
+                {suggestedWindows.map((w, i) => (
+                  <option key={i} value={i}>
+                    {w.start} – {w.end}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-earth-700 mb-1">Delivery window start</label>
+                <input
+                  type="time"
+                  value={deliveryStart}
+                  onChange={(e) => setDeliveryStart(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-earth-300 bg-earth-50 text-earth-900 focus:outline-none focus:ring-2 focus:ring-leaf-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-earth-700 mb-1">Delivery window end</label>
+                <input
+                  type="time"
+                  value={deliveryEnd}
+                  onChange={(e) => setDeliveryEnd(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-earth-300 bg-earth-50 text-earth-900 focus:outline-none focus:ring-2 focus:ring-leaf-400"
+                />
+              </div>
+            </>
+          )}
         </div>
         <div className="space-y-2 mb-4">
           <div className="flex items-center justify-between">
