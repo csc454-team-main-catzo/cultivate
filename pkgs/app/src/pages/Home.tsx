@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useUser } from "../providers/userContext";
+import { TextShimmer } from "@/components/ui/text-shimmer";
 
 /**
  * Home/landing: redirects based on auth state.
@@ -16,15 +17,15 @@ export default function Home() {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-leaf-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-earth-500 text-sm font-medium">Loading...</p>
+          <div className="w-8 h-8 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin" />
+          <p className="text-zinc-500 text-sm font-medium">Loading...</p>
         </div>
       </div>
     );
   }
 
   if (user) {
-    return <Navigate to="/listings" replace />;
+    return <Navigate to="/agent" replace />;
   }
 
   if (isAuthenticated && !user) {
@@ -32,32 +33,34 @@ export default function Home() {
   }
 
   return (
-    <div className="relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-leaf-50/80 via-earth-50 to-harvest-50/40" />
-      <div className="relative max-w-3xl mx-auto px-4 sm:px-6 py-20 sm:py-28 text-center">
-        <h1 className="font-display text-4xl sm:text-5xl text-earth-900 mb-4">
+    <div className="relative overflow-hidden min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center px-4 sm:px-6">
+      <div className="max-w-3xl mx-auto text-center">
+        <h1 className="text-4xl sm:text-5xl font-semibold text-zinc-900 tracking-tight mb-4">
           Cultivate
         </h1>
-        <p className="text-xl text-earth-600 mb-2 max-w-xl mx-auto">
+        <p className="text-xl text-zinc-600 mb-10 max-w-xl mx-auto">
           Connect farmers with restaurants. Source local, eat local.
-        </p>
-        <p className="text-earth-500 text-sm mb-10">
-          Log in to browse listings, post offers, or post bounties.
+          <br />
+          Chat with{" "}
+          <TextShimmer
+            as="span"
+            duration={1.2}
+            className="text-xl font-semibold [--base-color:#00674F] [--base-gradient-color:#00A27A] dark:[--base-color:#00674F] dark:[--base-gradient-color:#00A27A]"
+          >
+            Glean
+          </TextShimmer>{" "}
+          to source and sell.
         </p>
         <button
           type="button"
           onClick={() => loginWithRedirect()}
-          className="btn-primary text-base px-6 py-3"
+          className="inline-flex items-center justify-center rounded-lg bg-zinc-900 text-white text-base font-medium px-6 py-3 hover:bg-zinc-800 transition-colors"
         >
           Get started
         </button>
-        <div className="mt-16 flex justify-center gap-8 text-earth-400 text-sm">
-          <span className="flex items-center gap-1.5">
-            <span className="text-leaf-500">🌾</span> Farmers
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="text-harvest-500">🍽️</span> Restaurants
-          </span>
+        <div className="mt-16 flex justify-center gap-8 text-zinc-400 text-sm">
+          <span className="flex items-center gap-1.5">🌾 Farmers</span>
+          <span className="flex items-center gap-1.5">🍽️ Restaurants</span>
         </div>
       </div>
     </div>
