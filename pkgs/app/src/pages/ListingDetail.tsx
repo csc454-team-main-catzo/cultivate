@@ -283,7 +283,7 @@ export default function ListingDetail() {
       <div className="flex items-center justify-center min-h-[40vh]">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-leaf-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-earth-500 text-sm font-medium">Loading listing...</p>
+          <p className="text-zinc-500 text-sm font-medium">Loading listing...</p>
         </div>
       </div>
     );
@@ -292,7 +292,7 @@ export default function ListingDetail() {
   if (error || !listing) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
-        <p className="text-earth-600 mb-4">{error || "Listing not found."}</p>
+        <p className="text-zinc-600 mb-4">{error || "Listing not found."}</p>
         <Link to="/listings" className="text-leaf-600 font-medium hover:text-leaf-700">
           ← Back to listings
         </Link>
@@ -312,7 +312,7 @@ export default function ListingDetail() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
       <Link
         to="/listings"
-        className="inline-flex items-center gap-1 text-earth-600 text-sm font-medium hover:text-leaf-600 mb-6"
+        className="inline-flex items-center gap-1 text-zinc-600 text-sm font-medium hover:text-leaf-600 mb-6"
       >
         ← Back to listings
       </Link>
@@ -322,7 +322,7 @@ export default function ListingDetail() {
           <img
             src={primaryImageUrl}
             alt={listing.item}
-            className="w-full h-64 object-cover rounded-lg border border-earth-200 mb-4"
+            className="w-full h-64 object-cover rounded-lg border border-zinc-200 mb-4"
           />
         )}
         <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -341,22 +341,22 @@ export default function ListingDetail() {
                   ? "Restaurant"
                   : "Farmer"}
           </span>
-          <span className="text-xs text-earth-500 capitalize">{listing.status}</span>
+          <span className="text-xs text-zinc-500 capitalize">{listing.status}</span>
         </div>
         <h1 className="text-2xl font-semibold text-zinc-900 mb-2">
           {listing.title}
         </h1>
-        <p className="text-earth-600 text-sm mb-3">{listing.description}</p>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-earth-500">
+        <p className="text-zinc-600 text-sm mb-3">{listing.description}</p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-500">
           <span>{listing.item}</span>
           <span>Qty: {listing.qty} {listing.unit ?? "kg"}</span>
           <span>${listing.price.toFixed(2)}/{listing.unit ?? "kg"}</span>
         </div>
-        <p className="text-xs text-earth-400 mt-2">
+        <p className="text-xs text-zinc-400 mt-2">
           by {listing.createdBy?.name || "Unknown"}
         </p>
         {isOwner && (
-          <div className="flex flex-wrap items-center gap-3 mt-4 pt-4 border-t border-earth-200">
+          <div className="flex flex-wrap items-center gap-3 mt-4 pt-4 border-t border-zinc-200">
             <Link
               to={`/listings/${listing._id}/edit`}
               className="btn-secondary text-sm"
@@ -390,12 +390,12 @@ export default function ListingDetail() {
       </article>
 
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-10 flex items-center justify-center p-4 bg-earth-900/50" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+        <div className="fixed inset-0 z-10 flex items-center justify-center p-4 bg-zinc-900/50" role="dialog" aria-modal="true" aria-labelledby="delete-title">
           <div className="card p-6 max-w-sm w-full">
-            <h2 id="delete-title" className="font-display text-lg text-earth-900 mb-2">
+            <h2 id="delete-title" className="font-display text-lg text-zinc-900 mb-2">
               Delete this listing?
             </h2>
-            <p className="text-earth-600 text-sm mb-4">
+            <p className="text-zinc-600 text-sm mb-4">
               This cannot be undone. All responses will be removed.
             </p>
             {deleteError && (
@@ -436,7 +436,7 @@ export default function ListingDetail() {
 
       {responseToDelete && (
         <div
-          className="fixed inset-0 z-10 flex items-center justify-center p-4 bg-earth-900/50"
+          className="fixed inset-0 z-10 flex items-center justify-center p-4 bg-zinc-900/50"
           role="dialog"
           aria-modal="true"
           aria-labelledby="delete-response-title"
@@ -444,11 +444,11 @@ export default function ListingDetail() {
           <div className="card p-6 max-w-sm w-full">
             <h2
               id="delete-response-title"
-              className="font-display text-lg text-earth-900 mb-2"
+              className="font-display text-lg text-zinc-900 mb-2"
             >
               Delete your response?
             </h2>
-            <p className="text-earth-600 text-sm mb-4">
+            <p className="text-zinc-600 text-sm mb-4">
               This cannot be undone. The response will be removed from this listing.
             </p>
             {deleteResponseError && (
@@ -478,11 +478,11 @@ export default function ListingDetail() {
 
       {/* Responses */}
       <section className="mb-6">
-        <h2 className="font-display text-lg text-earth-900 mb-3">
+        <h2 className="font-display text-lg text-zinc-900 mb-3">
           Responses {listing.responses?.length ? `(${listing.responses.length})` : ""}
         </h2>
         {!listing.responses?.length ? (
-          <p className="text-earth-500 text-sm">No responses yet.</p>
+          <p className="text-zinc-500 text-sm">No responses yet.</p>
         ) : (
           <ul className="space-y-3">
             {listing.responses.map((r) => {
@@ -497,20 +497,20 @@ export default function ListingDetail() {
               return (
                 <li
                   key={r._id}
-                  className={`card p-4 border-earth-100 ${
+                  className={`card p-4 border-zinc-100 ${
                     isMatched ? "ring-2 ring-leaf-500 bg-leaf-50/50" : ""
                   }`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-earth-700 text-sm whitespace-pre-wrap">
+                      <p className="text-zinc-700 text-sm whitespace-pre-wrap">
                         {r.message}
                       </p>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-earth-500">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-zinc-500">
                         <span>${r.price.toFixed(2)} / {r.unit ?? "kg"}</span>
                         <span>Qty: {r.qty} {r.unit ?? "kg"}</span>
                       </div>
-                      <p className="text-xs text-earth-400 mt-1">
+                      <p className="text-xs text-zinc-400 mt-1">
                         by {r.createdBy?.name || "Unknown"} ·{" "}
                         {new Date(r.createdAt).toLocaleString()}
                       </p>
@@ -561,7 +561,7 @@ export default function ListingDetail() {
                         <button
                           type="button"
                           onClick={() => handleOpenChat(r)}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-earth-200 text-earth-700 hover:bg-earth-50 transition-colors"
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors"
                           aria-label="Open chat"
                         >
                           <svg
@@ -598,7 +598,7 @@ export default function ListingDetail() {
             >
               {fulfilling ? "Updating..." : "Mark as fulfilled"}
             </button>
-            <p className="text-earth-500 text-xs mt-1">
+            <p className="text-zinc-500 text-xs mt-1">
               Mark this listing as fulfilled when the exchange is complete.
             </p>
           </div>
@@ -608,7 +608,7 @@ export default function ListingDetail() {
       {/* Respond form */}
       {canRespond && (
         <section className="card p-5 sm:p-6">
-          <h2 className="font-display text-lg text-earth-900 mb-4">Respond to this listing</h2>
+          <h2 className="font-display text-lg text-zinc-900 mb-4">Respond to this listing</h2>
           {submitError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
               {submitError}
@@ -616,7 +616,7 @@ export default function ListingDetail() {
           )}
           <form onSubmit={handleSubmitResponse} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-earth-700 mb-1">
+              <label className="block text-sm font-medium text-zinc-700 mb-1">
                 Your message <span className="text-red-500">*</span>
               </label>
               <GhostTextarea
@@ -630,7 +630,7 @@ export default function ListingDetail() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-earth-700 mb-1">
+                <label className="block text-sm font-medium text-zinc-700 mb-1">
                   Your offered price per unit ($)
                 </label>
                 <input
@@ -642,10 +642,10 @@ export default function ListingDetail() {
                   step="0.01"
                   className="input-field"
                 />
-                <p className="text-earth-500 text-xs mt-1">Price you’re offering per {unit}.</p>
+                <p className="text-zinc-500 text-xs mt-1">Price you’re offering per {unit}.</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-earth-700 mb-1">
+                <label className="block text-sm font-medium text-zinc-700 mb-1">
                   Quantity <span className="text-red-500">*</span>
                 </label>
                 <div className="flex gap-2">
@@ -684,12 +684,12 @@ export default function ListingDetail() {
       )}
 
       {isOpen && isOwner && (
-        <p className="text-earth-500 text-sm mt-4">
+        <p className="text-zinc-500 text-sm mt-4">
           You created this listing. Match with a response above, or use Edit/Delete to manage it.
         </p>
       )}
       {listing.status === "matched" && isOwner && (
-        <p className="text-earth-500 text-sm mt-4">
+        <p className="text-zinc-500 text-sm mt-4">
           You've matched with a response. Mark as fulfilled when the exchange is complete.
         </p>
       )}

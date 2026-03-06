@@ -141,14 +141,14 @@ export default function Messages() {
         <div className="flex items-center justify-center min-h-[40vh]">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-leaf-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-earth-500 text-sm font-medium">
+            <p className="text-zinc-500 text-sm font-medium">
               Loading your conversations...
             </p>
           </div>
         </div>
       ) : !hasThreads ? (
         <div className="card p-5 text-center">
-          <p className="text-earth-600 text-sm mb-2">
+          <p className="text-zinc-600 text-sm mb-2">
             You don&apos;t have any conversations yet.
           </p>
           <Link
@@ -180,31 +180,31 @@ export default function Messages() {
                       },
                     })
                   }
-                  className="w-full text-left card p-4 hover:bg-earth-50 transition-colors"
+                  className="w-full text-left card p-4 hover:bg-zinc-50 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h2 className="font-display text-sm sm:text-base text-earth-900 truncate">
+                        <h2 className="font-display text-sm sm:text-base text-zinc-900 truncate">
                           {listing?.title || "Listing"}
                         </h2>
-                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-earth-100 text-earth-600 capitalize">
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 capitalize">
                           {listing?.status || "open"}
                         </span>
                       </div>
-                      <p className="text-xs text-earth-500 mb-1 truncate">
+                      <p className="text-xs text-zinc-500 mb-1 truncate">
                         {listing?.item} · Qty: {listing?.qty} · $
                         {listing?.price.toFixed(2)}
                       </p>
                       {lastMessage && (
-                        <p className="text-sm text-earth-700 line-clamp-1">
+                        <p className="text-sm text-zinc-700 line-clamp-1">
                           {lastMessage.text}
                         </p>
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       {otherParticipant && (
-                        <p className="text-xs text-earth-500 max-w-[120px] text-right truncate">
+                        <p className="text-xs text-zinc-500 max-w-[120px] text-right truncate">
                           With{" "}
                           <span className="font-medium">
                             {otherParticipant.name || otherParticipant.email}
@@ -212,7 +212,7 @@ export default function Messages() {
                         </p>
                       )}
                       {(lastMessage || thread.updatedAt) && (
-                        <p className="text-[11px] text-earth-400">
+                        <p className="text-[11px] text-zinc-400">
                           {new Date(
                             lastMessage?.createdAt ?? thread.updatedAt
                           ).toLocaleString(undefined, {

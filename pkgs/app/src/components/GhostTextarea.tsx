@@ -141,7 +141,7 @@ export default function GhostTextarea({
        */}
       <div
         className={[
-          "relative rounded-lg border border-earth-200 bg-white",
+          "relative rounded-lg border border-zinc-200 bg-white",
           "focus-within:ring-2 focus-within:ring-leaf-500/30 focus-within:border-leaf-500",
           "overflow-hidden",
           wrapperClassName,
@@ -161,7 +161,7 @@ export default function GhostTextarea({
             {/* Transparent mirror of the user's text positions the ghost correctly. */}
             <span style={{ color: "transparent" }}>{value}</span>
             {/* The actual ghost suggestion in muted gray. */}
-            <span className="text-earth-300">{ghost}</span>
+            <span className="text-zinc-400">{ghost}</span>
           </div>
         )}
 
@@ -173,8 +173,8 @@ export default function GhostTextarea({
           onKeyDown={handleKeyDown}
           rows={rows}
           className={[
-            "relative w-full bg-transparent text-earth-900",
-            "placeholder:text-earth-400",
+            "relative w-full bg-transparent text-zinc-900",
+            "placeholder:text-zinc-400",
             "focus:outline-none resize-none min-h-[80px]",
             SHARED_TEXT,
             SHARED_PADDING,
@@ -190,12 +190,12 @@ export default function GhostTextarea({
 
       {/* ── Keyboard hint ───────────────────────────────────────────────── */}
       {ghost && (
-        <p className="text-xs text-earth-400 select-none">
-          <kbd className="inline-block px-1 py-px rounded bg-earth-100 text-earth-500 font-mono text-[10px] leading-tight">
+        <p className="text-xs text-zinc-400 select-none">
+          <kbd className="inline-block px-1 py-px rounded bg-zinc-100 text-zinc-500 font-mono text-[10px] leading-tight">
             Tab
           </kbd>
           {" to accept · "}
-          <kbd className="inline-block px-1 py-px rounded bg-earth-100 text-earth-500 font-mono text-[10px] leading-tight">
+          <kbd className="inline-block px-1 py-px rounded bg-zinc-100 text-zinc-500 font-mono text-[10px] leading-tight">
             Esc
           </kbd>
           {" to dismiss"}
