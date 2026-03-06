@@ -30,7 +30,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   const proto = (req.headers['x-forwarded-proto'] as string | undefined) ?? 'https'
   const host = req.headers.host ?? 'localhost'
-  const url = `${proto}://${host}${req.url}`
+  // On Vercel, rewrites pass the destination path in req.url, not the original.
+  // We forward the original path via ?__path=/$1 in vercel.json.
+  const reqUrl = req.url ?? '/'
+  const parsed = new URL(reqUrl, `http://${host}`)
+  const path = parsed.searchParams.get('__path') ?? parsed.pathname
+  parsed.searchParams.delete('__path')
+  const query = parsed.searchParams.toString()
+  const url = `${proto}://${host}${path}${query ? `?${query}` : ''}`
 
   const headers: Record<string, string> = {}
   for (const [key, value] of Object.entries(req.headers)) {
