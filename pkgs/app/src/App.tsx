@@ -10,6 +10,7 @@ import ListingDetail from "./pages/ListingDetail"
 import EditListing from "./pages/EditListing"
 import ChatThread from "./pages/ChatThread"
 import Messages from "./pages/Messages"
+import AgentSourcing from "./pages/AgentSourcing"
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
           <Route path="listings/:id" element={<ListingDetail />} />
           <Route path="listings/:id/edit" element={<EditListing />} />
           <Route path="messages" element={<Messages />} />
+          <Route path="agent" element={<AgentSourcing />} />
           <Route path="chat/:id" element={<ChatThread />} />
         </Route>
       </Route>

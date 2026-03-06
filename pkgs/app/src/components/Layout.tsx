@@ -1,6 +1,8 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useUser } from "../providers/userContext";
+import { Button } from "./ui/button";
+import { cn } from "@/lib/utils";
 
 export default function Layout() {
   const { isAuthenticated, loginWithRedirect, logout } = useAuth0();
@@ -10,27 +12,29 @@ export default function Layout() {
   function navLinkClass(path: string) {
     const active =
       location.pathname === path || location.pathname.startsWith(path + "/");
-    return `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-      active
-        ? "bg-leaf-600 text-white"
-        : "text-earth-200 hover:bg-earth-800/60 hover:text-white"
-    }`;
+    return cn(
+      "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+      active ? "bg-zinc-900 text-white" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+    );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-earth-50">
-      <nav className="bg-earth-900 border-b border-earth-700/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+    <div className="min-h-screen flex flex-col bg-white">
+      <nav className="sticky top-0 z-50 w-full border-b border-zinc-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-6">
               <Link
                 to="/"
-                className="font-display text-xl text-white tracking-tight hover:text-harvest-200 transition-colors"
+                className="text-lg font-semibold text-zinc-900 tracking-tight hover:text-zinc-700 transition-colors"
               >
                 Cultivate
               </Link>
               {user && (
                 <div className="flex gap-1">
+                  <Link to="/agent" className={navLinkClass("/agent")}>
+                    Ask Glean
+                  </Link>
                   <Link to="/listings" className={navLinkClass("/listings")}>
                     Listings
                   </Link>
@@ -44,31 +48,32 @@ export default function Layout() {
               {isAuthenticated ? (
                 <>
                   {user && (
-                    <span className="text-earth-300 text-xs font-medium px-2.5 py-1 bg-earth-800 rounded-full">
+                    <span
+                      className={`text-xs font-medium px-3 py-1 rounded-full ${
+                        user.role === "farmer"
+                          ? "bg-[#E0F2EB] text-[#00674F]"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
+                    >
                       {user.role === "farmer" ? "Farmer" : "Restaurant"}
                     </span>
                   )}
-                  <span className="text-earth-200 text-sm max-w-[140px] truncate">
+                  <span className="text-sm text-zinc-600 max-w-[140px] truncate">
                     {user?.name || user?.email}
                   </span>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() =>
                       logout({ logoutParams: { returnTo: window.location.origin } })
                     }
-                    className="px-3 py-1.5 text-sm font-medium rounded-lg bg-earth-700 text-earth-200 hover:bg-earth-600 hover:text-white transition-colors"
                   >
                     Log out
-                  </button>
+                  </Button>
                 </>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => loginWithRedirect()}
-                  className="btn-primary"
-                >
-                  Log in
-                </button>
+                <Button onClick={() => loginWithRedirect()}>Log in</Button>
               )}
             </div>
           </div>
