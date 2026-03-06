@@ -1,4 +1,6 @@
-# Cultivate
+<p align="center">
+  <img src="pkgs/app/public/logos/cultivate-logo-wordmark.png" alt="Cultivate" width="280" />
+</p>
 
 > Connect farmers with restaurants. Source local, eat local.  
 > Chat with Glean to source and sell.
