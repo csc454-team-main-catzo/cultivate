@@ -2,10 +2,11 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useUser } from "../providers/userContext";
 import { Button } from "./ui/button";
+import { ProfileDropdown } from "./ui/profile-dropdown";
 import { cn } from "@/lib/utils";
 
 export default function Layout() {
-  const { isAuthenticated, loginWithRedirect, logout } = useAuth0();
+  const { isAuthenticated, loginWithRedirect } = useAuth0();
   const { user } = useUser();
   const location = useLocation();
 
@@ -50,33 +51,28 @@ export default function Layout() {
               )}
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              {isAuthenticated ? (
+              {isAuthenticated && user ? (
                 <>
-                  {user && (
-                    <span
-                      className={`text-xs font-medium px-3 py-1 rounded-full ${
-                        user.role === "farmer"
-                          ? "bg-[#E0F2EB] text-[#00674F]"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {user.role === "farmer" ? "Farmer" : "Restaurant"}
-                    </span>
-                  )}
-                  <span className="text-sm text-zinc-600 max-w-[140px] truncate">
-                    {user?.name || user?.email}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      logout({ logoutParams: { returnTo: window.location.origin } })
-                    }
+                  <span
+                    className={cn(
+                      "text-xs font-medium px-3 py-1 rounded-full shrink-0",
+                      user.role === "farmer"
+                        ? "bg-[#E0F2EB] text-[#00674F]"
+                        : "bg-blue-100 text-blue-800"
+                    )}
                   >
-                    Log out
-                  </Button>
+                    {user.role === "farmer" ? "Farmer" : "Restaurant"}
+                  </span>
+                  <ProfileDropdown
+                    data={{
+                      name: user.name ?? "User",
+                      email: user.email ?? "",
+                      avatar: user.avatar ?? undefined,
+                    }}
+                  />
                 </>
+              ) : isAuthenticated ? (
+                <span className="text-sm text-zinc-500">Loading...</span>
               ) : (
                 <Button onClick={() => loginWithRedirect()}>Log in</Button>
               )}

@@ -9,6 +9,8 @@ import {
   UserRegisterSchema,
   type UserRegisterInput,
   UserResponseSchema,
+  UserUpdateSchema,
+  type UserUpdateInput,
 } from "../schemas/user.js";
 
 /** Fetch user profile from Auth0 when access token lacks email/name claims */
@@ -147,6 +149,65 @@ users.get(
       return c.json(user, 200);
     } catch (error: any) {
       return c.json({ error: error.message }, 500);
+    }
+  }
+);
+
+users.patch(
+  "/me",
+  describeRoute({
+    operationId: "updateCurrentUser",
+    summary: "Update the authenticated user's profile",
+    security: [{ bearerAuth: [] }],
+    requestBody: {
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              name: { type: "string", maxLength: 32 },
+              email: { type: "string", format: "email" },
+              avatar: { type: "string", nullable: true },
+            },
+          },
+        },
+      },
+    },
+    responses: {
+      200: {
+        description: "Updated user",
+        content: {
+          "application/json": {
+            schema: resolver(UserResponseSchema),
+          },
+        },
+      },
+      400: { description: "Validation error" },
+      401: { description: "Unauthorized" },
+      404: { description: "User not found" },
+    },
+  }),
+  authMiddleware(),
+  validator("json", UserUpdateSchema),
+  async (c) => {
+    try {
+      const user = c.get("user");
+      if (!user) {
+        return c.json(
+          { error: "User not found. Please complete registration." },
+          404
+        );
+      }
+
+      const body = c.req.valid("json" as never) as UserUpdateInput;
+      if (body.name !== undefined) user.name = body.name;
+      if (body.email !== undefined) user.email = body.email;
+      if (body.avatar !== undefined) user.avatar = body.avatar ?? undefined;
+      await user.save();
+
+      return c.json(user, 200);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
     }
   }
 );

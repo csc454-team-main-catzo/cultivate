@@ -18,12 +18,23 @@ export const UserRegisterSchema = v.object({
 
 export type UserRegisterInput = v.InferOutput<typeof UserRegisterSchema>;
 
+export const UserUpdateSchema = v.object({
+  name: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(32))),
+  email: v.optional(v.pipe(v.string(), v.email())),
+  avatar: v.optional(
+    v.nullable(v.pipe(v.string(), v.maxLength(300000)))
+  ), // Base64 data URL, ~225KB max
+});
+
+export type UserUpdateInput = v.InferOutput<typeof UserUpdateSchema>;
+
 const BaseUserSchema = v.object({
   _id: v.string(),
   name: v.string(),
   email: v.string(),
   role: UserRoleResponseSchema,
   auth0Id: v.string(),
+  avatar: v.optional(v.nullable(v.string())),
   createdAt: v.string(),
 });
 

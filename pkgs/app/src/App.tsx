@@ -12,6 +12,7 @@ import ChatThread from "./pages/ChatThread"
 import Messages from "./pages/Messages"
 import AgentSourcing from "./pages/AgentSourcing"
 import InteractiveCheckoutDemo from "./pages/InteractiveCheckoutDemo"
+import Profile from "./pages/Profile"
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
           <Route path="checkout-demo" element={<InteractiveCheckoutDemo />} />
           <Route path="messages" element={<Messages />} />
           <Route path="agent" element={<AgentSourcing />} />
+          <Route path="profile" element={<Profile />} />
           <Route path="chat/:id" element={<ChatThread />} />
         </Route>
       </Route>

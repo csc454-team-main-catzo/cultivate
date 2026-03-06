@@ -168,6 +168,7 @@ export interface RegisterUser201Response {
     'email': string | null;
     'role': RegisterUser201ResponseRoleEnum;
     'auth0Id': string | null;
+    'avatar': string | null;
     'createdAt': string | null;
 }
 
@@ -189,6 +190,11 @@ export const RegisterUserRequestRoleEnum = {
 
 export type RegisterUserRequestRoleEnum = typeof RegisterUserRequestRoleEnum[keyof typeof RegisterUserRequestRoleEnum];
 
+export interface UpdateUserRequest {
+    'name'?: string;
+    'email'?: string;
+    'avatar'?: string | null;
+}
 
 /**
  * DefaultApi - axios parameter creator
@@ -730,6 +736,40 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
                 options: localVarRequestOptions,
             };
         },
+        /**
+         *
+         * @summary Update the authenticated user's profile
+         * @param {UpdateUserRequest} [updateUserRequest]
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateCurrentUser: async (updateUserRequest?: UpdateUserRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/users/me`;
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PATCH', ...baseOptions, ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            await setBearerAuthToObject(localVarHeaderParameter, configuration);
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+            localVarRequestOptions.data = serializeDataIfNeeded(updateUserRequest, localVarRequestOptions, configuration);
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -776,6 +816,12 @@ export const UsersApiFp = function(configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['UsersApi.registerUser']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
+        async updateCurrentUser(updateUserRequest?: UpdateUserRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<RegisterUser201Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.updateCurrentUser(updateUserRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['UsersApi.updateCurrentUser']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
     }
 };
 
@@ -813,8 +859,18 @@ export const UsersApiFactory = function (configuration?: Configuration, basePath
         registerUser(requestParameters: UsersApiRegisterUserRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<RegisterUser201Response> {
             return localVarFp.registerUser(requestParameters.registerUserRequest, options).then((request) => request(axios, basePath));
         },
+        updateCurrentUser(requestParameters: UsersApiUpdateCurrentUserRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<RegisterUser201Response> {
+            return localVarFp.updateCurrentUser(requestParameters.updateUserRequest, options).then((request) => request(axios, basePath));
+        },
     };
 };
+
+/**
+ * Request parameters for updateCurrentUser operation in UsersApi.
+ */
+export interface UsersApiUpdateCurrentUserRequest {
+    readonly updateUserRequest?: UpdateUserRequest;
+}
 
 /**
  * Request parameters for registerUser operation in UsersApi.
@@ -856,6 +912,10 @@ export class UsersApi extends BaseAPI {
      */
     public registerUser(requestParameters: UsersApiRegisterUserRequest = {}, options?: RawAxiosRequestConfig) {
         return UsersApiFp(this.configuration).registerUser(requestParameters.registerUserRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    public updateCurrentUser(requestParameters: UsersApiUpdateCurrentUserRequest = {}, options?: RawAxiosRequestConfig) {
+        return UsersApiFp(this.configuration).updateCurrentUser(requestParameters.updateUserRequest, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
