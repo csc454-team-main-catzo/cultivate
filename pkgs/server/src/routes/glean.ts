@@ -128,6 +128,41 @@ glean.post(
   }
 );
 
+glean.post(
+  "/chats/ensure",
+  describeRoute({
+    operationId: "ensureGleanChat",
+    summary: "Get or create the default Glean chat for a user+role",
+    security: [{ bearerAuth: [] }],
+    responses: {
+      200: { description: "Existing or created chat session" },
+      400: { description: "Invalid request" },
+      401: { description: "Unauthorized" },
+    },
+  }),
+  authMiddleware(),
+  async (c) => {
+    const userId = c.get("userId");
+    const raw = await readJson(c);
+    const parsed = v.safeParse(EnsureChatBody, raw);
+    if (!parsed.success) return c.json({ error: "Invalid request body" }, 400);
+    const body = parsed.output;
+
+    const existing = await GleanChat.findOne({ user: userId, role: body.role })
+      .sort({ updatedAt: -1 })
+      .lean();
+    if (existing) return c.json(existing, 200);
+
+    const created = await GleanChat.create({
+      user: userId,
+      role: body.role,
+      title: "New chat",
+      messages: [],
+    });
+    return c.json(created, 200);
+  }
+);
+
 glean.get(
   "/chats/:id",
   describeRoute({
@@ -222,41 +257,6 @@ glean.post(
     await chat.save();
     const last = chat.messages[chat.messages.length - 1];
     return c.json(last, 201);
-  }
-);
-
-glean.post(
-  "/chats/ensure",
-  describeRoute({
-    operationId: "ensureGleanChat",
-    summary: "Get or create the default Glean chat for a user+role",
-    security: [{ bearerAuth: [] }],
-    responses: {
-      200: { description: "Existing or created chat session" },
-      400: { description: "Invalid request" },
-      401: { description: "Unauthorized" },
-    },
-  }),
-  authMiddleware(),
-  async (c) => {
-    const userId = c.get("userId");
-    const raw = await readJson(c);
-    const parsed = v.safeParse(EnsureChatBody, raw);
-    if (!parsed.success) return c.json({ error: "Invalid request body" }, 400);
-    const body = parsed.output;
-
-    const existing = await GleanChat.findOne({ user: userId, role: body.role })
-      .sort({ updatedAt: -1 })
-      .lean();
-    if (existing) return c.json(existing, 200);
-
-    const created = await GleanChat.create({
-      user: userId,
-      role: body.role,
-      title: "New chat",
-      messages: [],
-    });
-    return c.json(created, 200);
   }
 );
 
