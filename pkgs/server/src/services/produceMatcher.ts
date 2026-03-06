@@ -218,7 +218,9 @@ export async function matchProduceFromTags(
 
 /**
  * Resolve prompt search terms to taxonomy-backed match strings (canonical + name + synonyms).
- * Used by Glean agent to match listings by produce type (e.g. "tomato" → Roma, cherry, etc.).
+ * Use for listing search so e.g. "tomato" matches listings with item "Roma tomato", "Cherry tomatoes", etc.
+ * @param terms - e.g. ["tomato", "carrot"] from prompt
+ * @returns Unique strings to match against listing item/title/description (empty if no taxonomy or no matches)
  */
 export async function getProduceMatchTerms(terms: string[]): Promise<string[]> {
   const activeItems = await loadActiveProduceItemsCached();

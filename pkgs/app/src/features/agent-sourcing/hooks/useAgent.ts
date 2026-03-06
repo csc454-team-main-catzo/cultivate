@@ -17,6 +17,13 @@ import type {
 
 const STREAM_CHUNK_MS = 35;
 
+/** Backend Glean match response (real listings from MongoDB). */
+interface GleanMatchResponse {
+  query: string;
+  items: ProductGridItem[];
+  role: string;
+}
+
 function generateId(): string {
   return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -76,6 +83,38 @@ function toPayload(res: GleanAgentResponse["payload"]): AgentResponsePayload | n
     return { type: "product_grid", query: res.query, items };
   }
   return { type: "inventory_form", draft: res.draft, userMessage: res.userMessage };
+}
+
+/** Build intro text and optional payload; for restaurant, payload may come from API. */
+function getIntroAndPayload(
+  role: UserRole,
+  trimmed: string,
+  apiItems?: ProductGridItem[] | null
+): { introText: string; payload: AgentResponsePayload } {
+  if (role === "farmer") {
+    const payload = fallbackAgentResponse(trimmed, role);
+    return {
+      introText:
+        "Here's your draft. Confirm weight and price, then tap Post to list it.",
+      payload,
+    };
+  }
+  if (apiItems != null && apiItems.length > 0) {
+    return {
+      introText:
+        "Here are some matches from our network. Add to order or start a conversation.",
+      payload: { type: "product_grid", query: trimmed, items: apiItems },
+    };
+  }
+  const payload = fallbackAgentResponse(trimmed, role) as Omit<
+    ProductGridMessage,
+    "id" | "role" | "createdAt"
+  >;
+  return {
+    introText:
+      "Here are some matches from our network. Add to order or start a conversation.",
+    payload,
+  };
 }
 
 /** Simulated streaming: append characters one by one. */
@@ -306,6 +345,32 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
           }
         );
       };
+
+      if (role === "restaurant") {
+        fetch(`${CFG.API_URL}/api/glean/match`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: trimmed, role: "restaurant" }),
+        })
+          .then((res) =>
+            res.ok ? res.json() : Promise.reject(new Error(res.statusText))
+          )
+          .then((data: GleanMatchResponse) => {
+            const items = (data.items ?? []).map((it) => ({
+              ...it,
+              imageUrl: it.imageId
+                ? `${CFG.API_URL}/api/images/${it.imageId}`
+                : it.imageUrl,
+            }));
+            const { introText, payload } = getIntroAndPayload(role, trimmed, items.length ? items : null);
+            showResponse(introText, payload);
+          })
+          .catch(() => {
+            const { introText, payload } = getIntroAndPayload(role, trimmed, null);
+            showResponse(introText, payload);
+          });
+        return cleanup;
+      }
 
       const priorMessages = messages.slice(-10).map((m) => ({
         role: m.role as "user" | "assistant",
