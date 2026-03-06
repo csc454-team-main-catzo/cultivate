@@ -129,7 +129,7 @@ export default function EditListing() {
       <div className="flex items-center justify-center min-h-[40vh]">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-leaf-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-earth-500 text-sm font-medium">Loading...</p>
+          <p className="text-zinc-500 text-sm font-medium">Loading...</p>
         </div>
       </div>
     );
@@ -176,7 +176,7 @@ export default function EditListing() {
       <form onSubmit={handleSubmit} className="space-y-4">
         {listing.type === "demand" && (
           <div>
-            <label className="block text-sm font-medium text-earth-700 mb-1">Title</label>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Title</label>
             <input
               type="text"
               value={title}
@@ -187,7 +187,7 @@ export default function EditListing() {
           </div>
         )}
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Item <span className="text-red-500">*</span>
           </label>
           <input
@@ -199,7 +199,7 @@ export default function EditListing() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Description <span className="text-red-500">*</span>
           </label>
           <GhostTextarea
@@ -211,7 +211,7 @@ export default function EditListing() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Unit <span className="text-red-500">*</span>
           </label>
           <select
@@ -226,7 +226,7 @@ export default function EditListing() {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Price per {unit} ($)
           </label>
           <input
@@ -239,7 +239,7 @@ export default function EditListing() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Quantity <span className="text-red-500">*</span>
           </label>
           <input
@@ -252,7 +252,7 @@ export default function EditListing() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Change location (postal code)
           </label>
           <input
@@ -263,7 +263,7 @@ export default function EditListing() {
             className="input-field"
             maxLength={10}
           />
-          <p className="text-earth-500 text-xs mt-1">
+          <p className="text-zinc-500 text-xs mt-1">
             Enter a new Canadian postal code to update your listing’s location.
           </p>
         </div>

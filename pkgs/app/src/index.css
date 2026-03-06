@@ -2,7 +2,7 @@
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  /* Legacy palette — still used by Listings, Messages, etc. */
+  /* Legacy palette — leaf/harvest used for accents; earth kept for reference */
   --color-earth-50: #f7f5f2;
   --color-earth-100: #ebe6df;
   --color-earth-200: #d9cfc2;

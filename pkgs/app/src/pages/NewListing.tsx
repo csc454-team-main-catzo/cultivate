@@ -273,14 +273,14 @@ export default function NewListing() {
         </div>
       )}
       {toast && (
-        <div className="mb-4 p-3 bg-harvest-50 border border-harvest-200 text-harvest-800 rounded-lg text-sm">
+        <div className="mb-4 p-3 bg-zinc-50 border border-zinc-200 text-zinc-800 rounded-lg text-sm">
           {toast}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Upload produce photo <span className="text-red-500">*</span>
           </label>
           <label
@@ -289,7 +289,7 @@ export default function NewListing() {
                 ? "border-leaf-300 bg-leaf-50"
                 : imageId
                   ? "border-leaf-400 bg-leaf-50"
-                  : "border-earth-300 bg-earth-50 hover:border-leaf-400 hover:bg-leaf-50"
+                  : "border-zinc-300 bg-zinc-50 hover:border-leaf-400 hover:bg-leaf-50"
               }`}
           >
             {previewUrl ? (
@@ -301,7 +301,7 @@ export default function NewListing() {
             ) : (
               <div className="flex flex-col items-center gap-2 py-8 px-4 text-center select-none">
                 <svg
-                  className="w-10 h-10 text-earth-400"
+                  className="w-10 h-10 text-zinc-400"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth={1.5}
@@ -313,10 +313,10 @@ export default function NewListing() {
                     d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
                   />
                 </svg>
-                <span className="text-sm font-medium text-earth-700">
+                <span className="text-sm font-medium text-zinc-700">
                   Click to choose a file
                 </span>
-                <span className="text-xs text-earth-400">JPEG, PNG, WEBP</span>
+                <span className="text-xs text-zinc-400">JPEG, PNG, WEBP</span>
               </div>
             )}
             <input
@@ -327,7 +327,7 @@ export default function NewListing() {
             />
           </label>
           {selectedImage && (
-            <p className={`text-xs mt-1.5 ${uploadingImage ? "text-leaf-600 font-medium" : "text-earth-500"}`}>
+            <p className={`text-xs mt-1.5 ${uploadingImage ? "text-leaf-600 font-medium" : "text-zinc-500"}`}>
               {uploadingImage ? "⏳ Uploading…" : `✓ ${selectedImage.name}`}
             </p>
           )}
@@ -342,7 +342,7 @@ export default function NewListing() {
           >
             {generatingDraft ? "Generating..." : "Generate draft"}
           </button>
-          <span className="text-xs text-earth-500">
+          <span className="text-xs text-zinc-500">
             AI only suggests item/title/description/attributes.
           </span>
         </div>
@@ -350,13 +350,13 @@ export default function NewListing() {
         {draft && (
           <div className="card p-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-earth-900">AI draft suggestion</h2>
-              <span className="text-sm text-earth-600">
+              <h2 className="text-lg font-semibold text-zinc-900">AI draft suggestion</h2>
+              <span className="text-sm text-zinc-600">
                 Confidence: {Math.round((draft.confidence || 0) * 100)}%
               </span>
             </div>
 
-            <div className="text-sm text-earth-700 space-y-1">
+            <div className="text-sm text-zinc-700 space-y-1">
               <p>
                 <span className="font-medium">Item:</span>{" "}
                 {draft.suggestedFields.itemName || "None"}
@@ -396,14 +396,14 @@ export default function NewListing() {
                 Dismiss
               </button>
             </div>
-            {/* <p className="text-xs text-earth-500">
+            {/* <p className="text-xs text-zinc-500">
               Not automatically filled: {NEVER_AUTO_FILL.join(", ")}
             </p> */}
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Item name <span className="text-red-500">*</span>
           </label>
           <input
@@ -417,7 +417,7 @@ export default function NewListing() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Title <span className="text-red-500">*</span>
           </label>
           <input
@@ -431,7 +431,7 @@ export default function NewListing() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Description <span className="text-red-500">*</span>
           </label>
           <GhostTextarea
@@ -445,7 +445,7 @@ export default function NewListing() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Quantity <span className="text-red-500">*</span>
           </label>
           <input
@@ -461,7 +461,7 @@ export default function NewListing() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Unit <span className="text-red-500">*</span>
           </label>
           <select
@@ -479,7 +479,7 @@ export default function NewListing() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Price{form.unit ? ` per ${form.unit}` : ""} <span className="text-red-500">*</span>
           </label>
           <input
@@ -496,7 +496,7 @@ export default function NewListing() {
 
         {/* <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-earth-700 mb-1">
+            <label className="block text-sm font-medium text-zinc-700 mb-1">
               Available from <span className="text-red-500">*</span>
             </label>
             <input
@@ -507,7 +507,7 @@ export default function NewListing() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-earth-700 mb-1">
+            <label className="block text-sm font-medium text-zinc-700 mb-1">
               Available until <span className="text-red-500">*</span>
             </label>
             <input
@@ -520,7 +520,7 @@ export default function NewListing() {
         </div> */}
 
         {/* <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Fulfillment <span className="text-red-500">*</span>
           </label>
           <input
@@ -533,7 +533,7 @@ export default function NewListing() {
         </div> */}
 
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1">
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
             Postal code <span className="text-red-500">*</span>
           </label>
           <input
@@ -544,7 +544,7 @@ export default function NewListing() {
             className="input-field"
             maxLength={10}
           />
-          <p className="text-earth-500 text-xs mt-1">
+          <p className="text-zinc-500 text-xs mt-1">
             Enter a Canadian postal code. We geocode this to listing coordinates.
           </p>
         </div>
@@ -552,7 +552,7 @@ export default function NewListing() {
         <button
           type="submit"
           disabled={submitting || requiredMissing}
-          className="w-full py-3 px-4 rounded-lg font-medium bg-leaf-600 text-white hover:bg-leaf-700 disabled:bg-earth-300 disabled:text-earth-500 transition-colors"
+          className="w-full py-3 px-4 rounded-lg font-medium bg-leaf-600 text-white hover:bg-leaf-700 disabled:bg-zinc-300 disabled:text-zinc-500 transition-colors"
         >
           {submitting ? "Creating..." : "Create listing"}
         </button>
