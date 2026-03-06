@@ -222,7 +222,16 @@ export function MultimodalInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = useState("");
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
-  const [suggestionsOpen, setSuggestionsOpen] = useState(true);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem("glean:suggestionsOpen");
+      if (raw === "0") return false;
+      if (raw === "1") return true;
+    } catch {
+      // ignore
+    }
+    return true;
+  });
 
   const adjustHeight = useCallback(() => {
     const ta = textareaRef.current;
@@ -309,6 +318,14 @@ export function MultimodalInput({
 
   const showSuggestedActions = canShowSuggestionsBase && suggestionsOpen;
   const isAttachmentDisabled = isGenerating || uploadQueue.length > 0;
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("glean:suggestionsOpen", suggestionsOpen ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  }, [suggestionsOpen]);
 
   return (
     <div className={cn("relative w-full flex flex-col gap-4", className)}>
