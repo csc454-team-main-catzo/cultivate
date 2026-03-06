@@ -42,7 +42,7 @@ export default function Register() {
           onClick={() => setSelectedRole("farmer")}
           className={`flex-1 p-6 rounded-lg border-2 transition-colors ${
             selectedRole === "farmer"
-              ? "border-green-600 bg-green-50"
+              ? "border-[#00674F] bg-[#E0F2EB]"
               : "border-gray-200 hover:border-gray-300"
           }`}
         >

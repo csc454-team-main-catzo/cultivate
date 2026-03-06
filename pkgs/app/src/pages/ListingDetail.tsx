@@ -327,10 +327,10 @@ export default function ListingDetail() {
         )}
         <div className="flex flex-wrap items-center gap-2 mb-2">
           <span
-            className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full ${
+            className={`inline-block text-xs font-medium px-3 py-1 rounded-full ${
               listing.createdBy?.role === "restaurant"
-                ? "bg-harvest-100 text-harvest-800"
-                : "bg-leaf-100 text-leaf-800"
+                ? "bg-blue-100 text-blue-800"
+                : "bg-[#E0F2EB] text-[#00674F]"
             }`}
           >
             {listing.createdBy?.role === "restaurant"

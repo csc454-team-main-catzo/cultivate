@@ -94,10 +94,10 @@ export default function Listings() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <span
-                      className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full ${
+                      className={`inline-block text-xs font-medium px-3 py-1 rounded-full ${
                         l.createdBy?.role === "restaurant"
-                          ? "bg-harvest-100 text-harvest-800"
-                          : "bg-leaf-100 text-leaf-800"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-[#E0F2EB] text-[#00674F]"
                       }`}
                     >
                       {l.createdBy?.role === "restaurant"
@@ -106,7 +106,7 @@ export default function Listings() {
                           ? "Farmer"
                           : l.type === "demand"
                             ? "Restaurant"
-                            : "Farme"}
+                            : "Farmer"}
                     </span>
                     <span className="font-semibold text-earth-900">{l.title}</span>
                     {Array.isArray(l.responses) && l.responses.length > 0 && (
