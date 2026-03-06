@@ -33,8 +33,8 @@ export default function Home() {
   }
 
   return (
-    <div className="relative overflow-hidden min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center px-4 sm:px-6">
-      <div className="max-w-3xl mx-auto text-center">
+    <div className="relative overflow-hidden min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center w-full px-4 sm:px-6 md:px-8 lg:px-10 min-[1400px]:px-12 box-border">
+      <div className="max-w-3xl mx-auto w-full text-center">
         <h1 className="mb-4">
           <img
             src="/logos/cultivate-logo-wordmark.png"

@@ -21,8 +21,8 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       <nav className="sticky top-0 z-50 w-full border-b border-zinc-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-14">
+        <div className="w-full px-4 sm:px-6 md:px-8 lg:px-10">
+          <div className="flex items-center justify-between h-14 gap-4">
             <div className="flex items-center gap-6">
               <Link
                 to="/"
@@ -49,7 +49,7 @@ export default function Layout() {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               {isAuthenticated ? (
                 <>
                   {user && (
@@ -84,7 +84,7 @@ export default function Layout() {
           </div>
         </div>
       </nav>
-      <main className="flex-1">
+      <main className="flex-1 w-full max-w-[100vw] overflow-x-hidden box-border">
         <Outlet />
       </main>
     </div>
