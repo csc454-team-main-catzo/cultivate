@@ -32,6 +32,8 @@ export interface ProductGridItem {
   unit?: string;
   farmerName: string;
   farmerId: string;
+  /** From API: listing photo id; frontend can resolve to imageUrl. */
+  imageId?: string;
   imageUrl?: string;
 }
 

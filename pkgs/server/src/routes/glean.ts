@@ -5,8 +5,43 @@ import { authMiddleware } from "../middleware/auth.js";
 import type { AuthenticatedContext } from "../middleware/types.js";
 import GleanChat from "../models/GleanChat.js";
 import GleanCart from "../models/GleanCart.js";
+import Listing from "../models/Listing.js";
+import { getProduceMatchTerms } from "../services/produceMatcher.js";
 
 const glean = new Hono<AuthenticatedContext>();
+
+/** Stopwords so we match by produce type (e.g. "tomato") not "fresh"/"delivery". */
+const MATCH_STOP_WORDS = new Set([
+  "i", "need", "want", "looking", "for", "some", "by", "the", "a", "an",
+  "kg", "lb", "and", "or", "to", "this", "week", "next", "please", "can", "you",
+  "fresh", "delivery", "farmers", "find", "with", "from", "have", "get", "buy",
+  "ordering", "bulk", "local", "organic", "ugly", "produce", "supply", "need",
+]);
+
+function extractSearchTerms(prompt: string): string[] {
+  const lower = prompt.toLowerCase().trim();
+  const words = lower.replace(/[^\w\s]/g, " ").split(/\s+/).filter(Boolean);
+  const terms: string[] = [];
+  for (const w of words) {
+    if (w.length >= 2 && !MATCH_STOP_WORDS.has(w) && !/^\d+$/.test(w)) {
+      terms.push(w.replace(/s$/, ""));
+    }
+  }
+  return terms.length > 0 ? terms : ["produce"];
+}
+
+function buildMatchTextQuery(terms: string[]) {
+  if (terms.length === 0) return {};
+  const escaped = terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const regexes = escaped.map((e) => new RegExp(e, "i"));
+  return {
+    $or: regexes.flatMap((r) => [
+      { item: r },
+      { title: r },
+      { description: r },
+    ]),
+  };
+}
 
 const CreateChatBody = v.object({
   role: v.picklist(["farmer", "restaurant"]),
@@ -335,6 +370,87 @@ glean.put(
       },
       200
     );
+  }
+);
+
+/** POST /match — body: { prompt, role }. Returns real listing matches for restaurant (supply from farmers). */
+glean.post(
+  "/match",
+  describeRoute({
+    operationId: "gleanMatch",
+    summary: "Match prompt to real supply listings (e.g. restaurant search)",
+    security: [{ bearerAuth: [] }, {}],
+    responses: {
+      200: { description: "Matched listings" },
+      400: { description: "Bad request" },
+    },
+  }),
+  authMiddleware({ optional: true }),
+  async (c) => {
+    try {
+      const raw = await readJson(c);
+      const prompt = typeof (raw as any)?.prompt === "string" ? (raw as any).prompt.trim() : "";
+      const role = (raw as any)?.role === "farmer" || (raw as any)?.role === "restaurant" ? (raw as any).role : "restaurant";
+
+      if (!prompt) return c.json({ error: "prompt is required" }, 400);
+
+      if (role === "farmer") {
+        return c.json({ query: prompt, items: [], role: "farmer" });
+      }
+
+      const terms = extractSearchTerms(prompt);
+      const taxonomyTerms = await getProduceMatchTerms(terms);
+      const matchTerms = taxonomyTerms.length > 0 ? taxonomyTerms : terms;
+      const textQuery = buildMatchTextQuery(matchTerms);
+
+      let listings = await Listing.find({
+        type: "supply",
+        status: "open",
+        ...textQuery,
+      })
+        .populate("createdBy", "name email role")
+        .sort({ createdAt: -1 })
+        .limit(30)
+        .lean();
+
+      listings = listings.filter(
+        (doc) => (doc.createdBy as { role?: string } | null)?.role === "farmer"
+      ).slice(0, 20);
+
+      if (listings.length === 0) {
+        listings = await Listing.find({ type: "supply", status: "open" })
+          .populate("createdBy", "name email role")
+          .sort({ createdAt: -1 })
+          .limit(30)
+          .lean();
+        listings = listings.filter(
+          (doc) => (doc.createdBy as { role?: string } | null)?.role === "farmer"
+        ).slice(0, 20);
+      }
+
+      const items = listings.map((doc) => {
+        const createdBy = doc.createdBy as { _id: unknown; name?: string } | null;
+        const photo = Array.isArray(doc.photos) && doc.photos.length > 0 ? doc.photos[0] : null;
+        return {
+          id: String(doc._id),
+          listingId: String(doc._id),
+          title: doc.title ?? "",
+          item: doc.item ?? "",
+          description: doc.description ?? undefined,
+          price: doc.price ?? 0,
+          qty: doc.qty ?? 0,
+          unit: doc.unit ?? "kg",
+          farmerName: createdBy?.name ?? "Farmer",
+          farmerId: createdBy?._id != null ? String(createdBy._id) : "",
+          imageId: photo?.imageId != null ? String(photo.imageId) : undefined,
+        };
+      });
+
+      return c.json({ query: prompt, items, role: "restaurant" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      return c.json({ error: message }, 500);
+    }
   }
 );
 

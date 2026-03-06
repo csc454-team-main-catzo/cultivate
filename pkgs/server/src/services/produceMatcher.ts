@@ -215,3 +215,33 @@ export async function matchProduceFromTags(
     reasons,
   };
 }
+
+/**
+ * Resolve prompt search terms to taxonomy-backed match strings (canonical + name + synonyms).
+ * Use for listing search so e.g. "tomato" matches listings with item "Roma tomato", "Cherry tomatoes", etc.
+ * @param terms - e.g. ["tomato", "carrot"] from prompt
+ * @returns Unique strings to match against listing item/title/description (empty if no taxonomy or no matches)
+ */
+export async function getProduceMatchTerms(terms: string[]): Promise<string[]> {
+  const activeItems = await loadActiveProduceItemsCached();
+  if (activeItems.length === 0 || terms.length === 0) return [];
+
+  const out = new Set<string>();
+  for (const rawTerm of terms) {
+    const normalizedTerm = normalizeLabel(rawTerm);
+    if (!normalizedTerm) continue;
+    for (const item of activeItems) {
+      const candidateTerms = [item.name, item.canonical, ...(item.synonyms || [])];
+      for (const c of candidateTerms) {
+        const normalizedC = normalizeLabel(c);
+        if (getMatchWeight(normalizedTerm, normalizedC) > 0) {
+          out.add(item.canonical);
+          out.add(item.name);
+          for (const s of item.synonyms || []) out.add(s);
+          break;
+        }
+      }
+    }
+  }
+  return Array.from(out).filter(Boolean);
+}

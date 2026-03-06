@@ -14,6 +14,13 @@ import type {
 const THINKING_DELAY_MS = 1200;
 const STREAM_CHUNK_MS = 35;
 
+/** Backend Glean match response (real listings from MongoDB). */
+interface GleanMatchResponse {
+  query: string;
+  items: ProductGridItem[];
+  role: string;
+}
+
 function generateId(): string {
   return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -99,6 +106,38 @@ function simulateAgentResponse(
     type: "product_grid",
     query: userText,
     items,
+  };
+}
+
+/** Build intro text and optional payload; for restaurant, payload may come from API. */
+function getIntroAndPayload(
+  role: UserRole,
+  trimmed: string,
+  apiItems?: ProductGridItem[] | null
+): { introText: string; payload: AgentResponsePayload } {
+  if (role === "farmer") {
+    const payload = simulateAgentResponse(trimmed, role);
+    return {
+      introText:
+        "Here's your draft. Confirm weight and price, then tap Post to list it.",
+      payload,
+    };
+  }
+  if (apiItems != null && apiItems.length > 0) {
+    return {
+      introText:
+        "Here are some matches from our network. Add to order or start a conversation.",
+      payload: { type: "product_grid", query: trimmed, items: apiItems },
+    };
+  }
+  const payload = simulateAgentResponse(trimmed, role) as Omit<
+    ProductGridMessage,
+    "id" | "role" | "createdAt"
+  >;
+  return {
+    introText:
+      "Here are some matches from our network. Add to order or start a conversation.",
+    payload,
   };
 }
 
@@ -251,14 +290,16 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
       void persistMessage({ role: "user", type: "text", content: trimmed });
       setIsThinking(true);
 
-      const timeoutId = window.setTimeout(() => {
-        setIsThinking(false);
-        const payload = simulateAgentResponse(trimmed, role);
-        const introText =
-          role === "farmer"
-            ? "Here’s your draft. Confirm weight and price, then tap Post to list it."
-            : "Here are some matches from our network. Add to order or start a conversation.";
+      let cancelled = false;
+      const cleanup = () => {
+        cancelled = true;
+        streamCancelRef.current();
+      };
 
+      const showResponse = (apiItems: ProductGridItem[] | null) => {
+        if (cancelled) return;
+        setIsThinking(false);
+        const { introText, payload } = getIntroAndPayload(role, trimmed, apiItems);
         const introId = generateId();
         setMessages((prev) => [
           ...prev,
@@ -274,6 +315,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
         streamCancelRef.current = streamText(
           introText,
           (soFar) => {
+            if (cancelled) return;
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === introId
@@ -287,6 +329,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
             );
           },
           () => {
+            if (cancelled) return;
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === introId ? { ...m, isStreaming: false } : m
@@ -319,9 +362,38 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
             }
           }
         );
+      };
+
+      if (role === "restaurant") {
+        fetch(`${CFG.API_URL}/api/glean/match`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: trimmed, role: "restaurant" }),
+        })
+          .then((res) =>
+            res.ok ? res.json() : Promise.reject(new Error(res.statusText))
+          )
+          .then((data: GleanMatchResponse) => {
+            const items = (data.items ?? []).map((it) => ({
+              ...it,
+              imageUrl: it.imageId
+                ? `${CFG.API_URL}/api/images/${it.imageId}`
+                : it.imageUrl,
+            }));
+            showResponse(items.length ? items : null);
+          })
+          .catch(() => {
+            showResponse(null);
+          });
+        return cleanup;
+      }
+
+      const timeoutId = window.setTimeout(() => {
+        showResponse(null);
       }, THINKING_DELAY_MS);
 
       return () => {
+        cancelled = true;
         window.clearTimeout(timeoutId);
         streamCancelRef.current();
       };
