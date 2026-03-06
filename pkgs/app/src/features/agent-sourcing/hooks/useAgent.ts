@@ -10,7 +10,6 @@ import type {
   TextMessage,
   UserRole,
 } from "../types";
-import CFG from "../../../config.js";
 
 const THINKING_DELAY_MS = 1200;
 const STREAM_CHUNK_MS = 35;
@@ -366,7 +365,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
       };
 
       if (role === "restaurant") {
-        fetch(`${CFG.API_URL}/api/agent/glean/match`, {
+        fetch(`${CFG.API_URL}/api/glean/match`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ prompt: trimmed, role: "restaurant" }),
