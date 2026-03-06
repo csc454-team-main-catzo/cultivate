@@ -164,7 +164,7 @@ export default function ChatThread() {
 
   if (!isAuthenticated) {
     return (
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
         <p className="text-zinc-600 mb-4">
           You need to be logged in to view this chat.
         </p>
@@ -192,7 +192,7 @@ export default function ChatThread() {
 
   if (!thread || threadError) {
     return (
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
         <p className="text-zinc-600 mb-4">
           {threadError || "Chat not found or you do not have access."}
         </p>
@@ -255,7 +255,7 @@ export default function ChatThread() {
   const backLabel = cameFromMessages ? "← Back to messages" : "← Back to listing";
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
       <Link
         to={backHref}
         className="inline-flex items-center gap-1 text-zinc-600 text-sm font-medium hover:text-zinc-900 mb-4"
@@ -269,7 +269,7 @@ export default function ChatThread() {
           onClick={() => navigate(listingLink)}
         >
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-            <h1 className="font-semibold text-lg sm:text-xl text-zinc-900">
+            <h1 className="text-2xl font-semibold text-zinc-900">
               {listing.title}
             </h1>
             <span className="text-xs text-zinc-500 capitalize">

@@ -262,8 +262,8 @@ export default function NewListing() {
   }
 
   return (
-    <div className="max-w-xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-      <h1 className="font-display text-2xl sm:text-3xl text-earth-900 mb-6">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+      <h1 className="text-2xl font-semibold text-zinc-900 mb-6">
         Create supply listing
       </h1>
 

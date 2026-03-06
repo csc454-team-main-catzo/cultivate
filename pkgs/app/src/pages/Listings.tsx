@@ -42,11 +42,9 @@ export default function Listings() {
   }, [filter, listingsApi]);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 className="font-display text-2xl sm:text-3xl text-earth-900">
-          Listings
-        </h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">Listings</h1>
         <Link to="/listings/new" className="btn-primary shrink-0">
           + New Listing
         </Link>

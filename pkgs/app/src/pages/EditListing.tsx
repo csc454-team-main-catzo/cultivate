@@ -137,8 +137,8 @@ export default function EditListing() {
 
   if (error || !listing) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-8">
-        <p className="text-earth-600 mb-4">{error || "Listing not found."}</p>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+        <p className="text-zinc-600 mb-4">{error || "Listing not found."}</p>
         <Link to="/listings" className="text-leaf-600 font-medium hover:text-leaf-700">
           ← Back to listings
         </Link>
@@ -148,8 +148,8 @@ export default function EditListing() {
 
   if (listing.createdBy._id !== user?._id) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-8">
-        <p className="text-earth-600 mb-4">You can only edit your own listing.</p>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+        <p className="text-zinc-600 mb-4">You can only edit your own listing.</p>
         <Link to={`/listings/${listing._id}`} className="text-leaf-600 font-medium hover:text-leaf-700">
           ← Back to listing
         </Link>
@@ -158,14 +158,14 @@ export default function EditListing() {
   }
 
   return (
-    <div className="max-w-xl mx-auto px-4 sm:px-6 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
       <Link
         to={`/listings/${id}`}
-        className="inline-flex items-center gap-1 text-earth-600 text-sm font-medium hover:text-leaf-600 mb-6"
+        className="inline-flex items-center gap-1 text-zinc-600 text-sm font-medium hover:text-zinc-900 mb-6"
       >
         ← Back to listing
       </Link>
-      <h1 className="font-display text-2xl text-earth-900 mb-6">Edit listing</h1>
+      <h1 className="text-2xl font-semibold text-zinc-900 mb-6">Edit listing</h1>
 
       {submitError && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">

@@ -110,8 +110,8 @@ export default function Messages() {
 
   if (!isAuthenticated) {
     return (
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-        <p className="text-earth-600 mb-4">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+        <p className="text-zinc-600 mb-4">
           You need to be logged in to view your messages.
         </p>
         <button
@@ -126,11 +126,9 @@ export default function Messages() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="font-display text-xl sm:text-2xl text-earth-900">
-          Messages
-        </h1>
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-semibold text-zinc-900">Messages</h1>
       </div>
 
       {error && (

@@ -42,7 +42,7 @@ export default function AgentSourcing() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
       <h1 className="text-2xl font-semibold text-zinc-900 mb-2">Glean</h1>
       <p className="text-zinc-500 text-sm mb-6">
         Your agriculture personal assistant.
