@@ -167,7 +167,7 @@ users.patch(
             properties: {
               name: { type: "string", maxLength: 32 },
               email: { type: "string", format: "email" },
-              avatar: { type: "string", nullable: true },
+              avatar: { type: "string" },
             },
           },
         },
