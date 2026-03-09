@@ -109,7 +109,7 @@ export interface UseAgentOptions {
 export interface UseAgentReturn {
   messages: AgentMessage[];
   isThinking: boolean;
-  sendMessage: (text: string) => void;
+  sendMessage: (text: string, options?: { imageId?: string }) => void;
   confirmInventoryDraft?: (draft: InventoryDraftData) => void;
   cancelThinking?: () => void;
 }
