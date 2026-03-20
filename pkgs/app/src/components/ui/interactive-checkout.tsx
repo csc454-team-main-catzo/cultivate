@@ -366,8 +366,8 @@ function InteractiveCheckout({
 
   return (
     <div className="w-full">
-      <div className="flex flex-col lg:flex-row gap-6">
-        <div className="flex-1 space-y-3">
+      <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 lg:gap-5">
+        <div className="flex-1 min-w-0 space-y-2 sm:space-y-3">
           {products.map((product) => (
             <motion.div
               key={product.id}
@@ -376,7 +376,7 @@ function InteractiveCheckout({
               transition={{ duration: 0.2 }}
               className={cn(
                 "group",
-                "p-3 sm:p-4 rounded-xl",
+                "px-2.5 py-2.5 sm:p-4 rounded-xl",
                 "bg-white",
                 "border border-zinc-200",
                 "hover:border-zinc-300",
@@ -386,7 +386,7 @@ function InteractiveCheckout({
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 {(() => {
                   const info = (
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                       <div
                         className={cn(
                           "relative w-12 h-12 rounded-lg overflow-hidden shrink-0",
@@ -403,7 +403,7 @@ function InteractiveCheckout({
                       </div>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                          <h3 className="text-sm font-medium text-zinc-900 truncate">
+                          <h3 className="text-sm font-medium text-zinc-900 break-words">
                             {product.name}
                           </h3>
                           <span className="px-2 py-0.5 text-xs rounded-full bg-zinc-100 text-zinc-500 shrink-0">
