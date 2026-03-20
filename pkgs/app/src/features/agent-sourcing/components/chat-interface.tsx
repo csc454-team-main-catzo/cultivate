@@ -19,10 +19,57 @@ import {
 import { useAuth0 } from "@auth0/auth0-react";
 import CFG from "@/config";
 import { useListingActions } from "@/hooks/useListingActions";
-import { InteractiveCheckout, type CartItem, type Product as CheckoutProduct } from "@/components/ui/interactive-checkout";
+import { InteractiveCheckout, type CartItem, type Product as CheckoutProduct, type ProductUnit } from "@/components/ui/interactive-checkout";
 import { CheckoutForm } from "@/components/ui/checkout-form";
 import { OrderConfirmationCard } from "@/components/ui/order-confirmation-card";
 import { cn } from "@/lib/utils";
+
+/* ------------------------------------------------------------------ */
+/*  Parse "2kg of tomatoes" / "3 lb greens" from the user query        */
+/* ------------------------------------------------------------------ */
+
+interface RequestedAmount {
+  qty: number;
+  unit: ProductUnit;
+  /** Lowercased keyword(s) the user mentioned (e.g. "tomatoes", "greens mix"). */
+  keyword: string;
+}
+
+const QTY_UNIT_RE =
+  /(\d+(?:\.\d+)?)\s*(kg|kgs|lb|lbs|pound|pounds|count|ct|bunch)\b(?:\s+(?:of\s+)?)?([\w\s]{2,}?)(?:\s+and\b|\s*,|$)/gi;
+
+function parseRequestedAmounts(query: string): RequestedAmount[] {
+  const results: RequestedAmount[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = QTY_UNIT_RE.exec(query)) !== null) {
+    const rawUnit = m[2].toLowerCase();
+    let unit: ProductUnit;
+    if (rawUnit === "lb" || rawUnit === "lbs" || rawUnit === "pound" || rawUnit === "pounds") unit = "lb";
+    else if (rawUnit === "kg" || rawUnit === "kgs") unit = "kg";
+    else if (rawUnit === "ct" || rawUnit === "count") unit = "count";
+    else unit = rawUnit as ProductUnit;
+
+    const keyword = m[3].trim().toLowerCase();
+    if (keyword) {
+      results.push({ qty: parseFloat(m[1]), unit, keyword });
+    }
+  }
+  return results;
+}
+
+function matchRequestedAmount(
+  itemTitle: string,
+  itemCategory: string,
+  amounts: RequestedAmount[],
+): RequestedAmount | undefined {
+  const title = itemTitle.toLowerCase();
+  const category = itemCategory.toLowerCase();
+  return amounts.find(
+    (a) => title.includes(a.keyword) || category.includes(a.keyword) || a.keyword.includes(title) || a.keyword.includes(category),
+  );
+}
+
+/* ------------------------------------------------------------------ */
 
 interface ChatInterfaceProps {
   role: UserRole | undefined;
@@ -194,6 +241,7 @@ export function ChatInterface({
                 <MessageBubble
                   key={msg.id}
                   message={msg}
+                  chatId={chatId}
                   theme={theme}
                   AgentIcon={AgentIcon}
                   onPostInventory={onPostInventory}
@@ -252,6 +300,7 @@ export function ChatInterface({
               ? "Describe what you've harvested..."
               : "Describe what you need..."
           }
+          draftKey={chatId ? `glean:draft:${chatId}` : undefined}
         />
       </div>
 
@@ -318,6 +367,7 @@ export function ChatInterface({
 
 interface MessageBubbleProps {
   message: AgentMessage;
+  chatId: string | null;
   theme: ReturnType<typeof getAgentTheme>;
   AgentIcon: typeof Bot;
   onPostInventory?: (draft: InventoryDraftData) => void;
@@ -328,6 +378,7 @@ interface MessageBubbleProps {
 
 function MessageBubble({
   message,
+  chatId,
   theme,
   AgentIcon,
   onPostInventory,
@@ -371,26 +422,37 @@ function MessageBubble({
             )}
           </div>
         )}
-        {message.type === "product_grid" && (
+        {message.type === "product_grid" && (() => {
+          const requested = parseRequestedAmounts(message.query);
+          return (
           <div className="rounded-2xl rounded-bl-md border border-zinc-200 bg-white px-3 py-3 sm:px-4 sm:py-4">
             <InteractiveCheckout
-              products={message.items.map((item, index): CheckoutProduct => ({
-                id: item.id || `agent-${index}`,
-                name: item.title,
-                price: item.price,
-                category: item.item,
-                image:
-                  item.imageUrl ??
-                  "https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?auto=format&fit=crop&w=600&q=80",
-                color: item.unit ?? "kg",
-                deliveryWindow: item.deliveryWindow,
-              }))}
+              products={message.items.map((item, index): CheckoutProduct => {
+                const match = matchRequestedAmount(item.title, item.item, requested);
+                return {
+                  id: item.id || `agent-${index}`,
+                  listingId: item.listingId || item.id,
+                  name: item.title,
+                  price: item.price,
+                  category: item.item,
+                  image:
+                    item.imageUrl ??
+                    "https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?auto=format&fit=crop&w=600&q=80",
+                  color: item.farmerName ?? "",
+                  unit: (item.unit as ProductUnit) ?? "kg",
+                  availableQty: item.qty,
+                  ...(match ? { requestedQty: match.qty, requestedUnit: match.unit } : {}),
+                  deliveryWindow: item.deliveryWindow,
+                };
+              })}
               cart={cart}
               onCartChange={onCartChange}
               onCheckout={onCheckout}
+              storageKey={chatId ? `glean:checkout:${chatId}:${message.items.map((i) => i.listingId || i.id).sort().join(",")}` : undefined}
             />
           </div>
-        )}
+          );
+        })()}
         {message.type === "inventory_form" && (
           <InventoryDraftCard
             draft={message.draft}
