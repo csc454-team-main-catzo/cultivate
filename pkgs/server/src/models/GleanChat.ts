@@ -5,6 +5,7 @@ export type GleanMessageType = "text" | "product_grid" | "inventory_form";
 
 export interface IGleanProductGridItem {
   id: string;
+  listingId?: string;
   title: string;
   item: string;
   description?: string;
@@ -47,6 +48,7 @@ export interface IGleanChat extends Document {
 const GleanProductGridItemSchema = new Schema<IGleanProductGridItem>(
   {
     id: { type: String, required: true },
+    listingId: { type: String, required: false },
     title: { type: String, required: true },
     item: { type: String, required: true },
     description: { type: String, required: false },
