@@ -156,7 +156,7 @@ export function ChatInterface({
   }, [cart, chatId, getAuthHeaders, isAuthenticated]);
 
   return (
-    <div className="flex flex-col h-full min-h-[480px] max-h-[calc(100vh-12rem)] rounded-2xl border border-zinc-200 bg-zinc-50/50">
+    <div className="flex flex-col h-full min-h-0 rounded-2xl border border-zinc-200 bg-zinc-50/50">
       {/* Header — minimal, ChatGPT-style */}
       <header className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-zinc-200 bg-white rounded-t-2xl">
         <Avatar className={cn("h-9 w-9", theme.primaryBg, "text-white")}>
