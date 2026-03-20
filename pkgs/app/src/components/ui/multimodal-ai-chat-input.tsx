@@ -239,6 +239,8 @@ export interface MultimodalInputProps {
   canSend: boolean;
   placeholder?: string;
   className?: string;
+  /** When set, unsent text is persisted to sessionStorage under this key. */
+  draftKey?: string;
 }
 
 export function MultimodalInput({
@@ -251,11 +253,23 @@ export function MultimodalInput({
   canSend,
   placeholder = "Ask Glean...",
   className,
+  draftKey,
 }: MultimodalInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<{ start: () => void; stop: () => void } | null>(null);
-  const [input, setInput] = useState("");
+  const draftKeyRef = useRef(draftKey);
+  const [input, _setInput] = useState(() => {
+    if (!draftKey) return "";
+    try { return sessionStorage.getItem(draftKey) ?? ""; } catch { return ""; }
+  });
+
+  const setInput = useCallback((val: string) => {
+    _setInput(val);
+    const key = draftKeyRef.current;
+    if (key) try { sessionStorage.setItem(key, val); } catch { /* quota */ }
+  }, []);
+
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(() => {
@@ -268,6 +282,18 @@ export function MultimodalInput({
     }
     return true;
   });
+
+  // Restore draft when draftKey changes (switching chats).
+  useEffect(() => {
+    if (draftKey !== draftKeyRef.current) {
+      draftKeyRef.current = draftKey;
+      if (draftKey) {
+        try { _setInput(sessionStorage.getItem(draftKey) ?? ""); } catch { _setInput(""); }
+      } else {
+        _setInput("");
+      }
+    }
+  }, [draftKey]);
 
   const adjustHeight = useCallback(() => {
     const ta = textareaRef.current;
@@ -338,7 +364,8 @@ export function MultimodalInput({
   const submitForm = useCallback(() => {
     if (!input.trim() && attachments.length === 0) return;
     void Promise.resolve(onSendMessage({ input: input.trim(), attachments })).then(() => {
-      setInput("");
+      _setInput("");
+      if (draftKeyRef.current) try { sessionStorage.removeItem(draftKeyRef.current); } catch { /* ignore */ }
       setAttachments([]);
       attachments.forEach((a) => {
         if (a.url.startsWith("blob:")) URL.revokeObjectURL(a.url);

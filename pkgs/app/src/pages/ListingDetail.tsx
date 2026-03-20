@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useApi } from "../providers/apiContext";
 import { useUser } from "../providers/userContext";
@@ -41,6 +41,8 @@ interface ListingDetailData {
 export default function ListingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const locationState = location.state as { from?: string } | null;
   const { listings: listingsApi } = useApi();
   const { user } = useUser();
   const { isAuthenticated, getAccessTokenSilently, loginWithRedirect } = useAuth0();
@@ -290,12 +292,16 @@ export default function ListingDetail() {
     );
   }
 
+  const cameFromChatEarly = locationState?.from === "chat";
+  const backHrefEarly = cameFromChatEarly ? "/agent" : "/listings";
+  const backLabelEarly = cameFromChatEarly ? "← Back to chat" : "← Back to listings";
+
   if (error || !listing) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
         <p className="text-zinc-600 mb-4">{error || "Listing not found."}</p>
-        <Link to="/listings" className="text-leaf-600 font-medium hover:text-leaf-700">
-          ← Back to listings
+        <Link to={backHrefEarly} className="text-leaf-600 font-medium hover:text-leaf-700">
+          {backLabelEarly}
         </Link>
       </div>
     );
@@ -309,13 +315,17 @@ export default function ListingDetail() {
     ? `${CFG.API_URL}/api/images/${primaryImageId}`
     : null;
 
+  const cameFromChat = locationState?.from === "chat";
+  const backHref = cameFromChat ? "/agent" : "/listings";
+  const backLabel = cameFromChat ? "← Back to chat" : "← Back to listings";
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
       <Link
-        to="/listings"
+        to={backHref}
         className="inline-flex items-center gap-1 text-zinc-600 text-sm font-medium hover:text-leaf-600 mb-6"
       >
-        ← Back to listings
+        {backLabel}
       </Link>
 
       <article className="card p-5 sm:p-6 mb-6">

@@ -286,6 +286,29 @@ glean.patch(
   }
 );
 
+glean.delete(
+  "/chats/:id",
+  describeRoute({
+    operationId: "deleteGleanChat",
+    summary: "Delete a Glean chat session",
+    security: [{ bearerAuth: [] }],
+    responses: {
+      200: { description: "Deleted" },
+      401: { description: "Unauthorized" },
+      404: { description: "Not found" },
+    },
+  }),
+  authMiddleware(),
+  async (c) => {
+    const userId = c.get("userId");
+    const id = c.req.param("id");
+    const chat = await GleanChat.findOneAndDelete({ _id: id, user: userId });
+    if (!chat) return c.json({ error: "Chat not found" }, 404);
+    await GleanCart.deleteMany({ user: userId, chat: id });
+    return c.json({ ok: true }, 200);
+  }
+);
+
 glean.post(
   "/chats/:id/messages",
   describeRoute({
