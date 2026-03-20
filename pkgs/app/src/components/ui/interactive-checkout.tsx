@@ -376,14 +376,14 @@ function InteractiveCheckout({
               transition={{ duration: 0.2 }}
               className={cn(
                 "group",
-                "p-4 rounded-xl",
+                "p-3 sm:p-4 rounded-xl",
                 "bg-white",
                 "border border-zinc-200",
                 "hover:border-zinc-300",
                 "transition-all duration-200",
               )}
             >
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 {(() => {
                   const info = (
                     <div className="flex items-center gap-3 min-w-0">
@@ -402,7 +402,7 @@ function InteractiveCheckout({
                         />
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                           <h3 className="text-sm font-medium text-zinc-900 truncate">
                             {product.name}
                           </h3>
@@ -448,7 +448,7 @@ function InteractiveCheckout({
                   const exceeds = remaining != null && inputQty > remaining;
                   const cannotAdd = soldOut || exceeds;
                   return (
-                    <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="flex flex-col items-start sm:items-end gap-1 shrink-0">
                       <div className="flex items-center gap-1.5">
                         <input
                           type="number"
@@ -519,7 +519,7 @@ function InteractiveCheckout({
           animate={{ opacity: 1, x: 0 }}
           className={cn(
             "w-full lg:w-80 flex flex-col",
-            "p-4 rounded-xl",
+            "p-3 sm:p-4 rounded-xl",
             "bg-white",
             "border border-zinc-200",
             "lg:sticky lg:top-4",

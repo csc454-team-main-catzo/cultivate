@@ -205,7 +205,7 @@ export function ChatInterface({
   return (
     <div className="flex flex-col h-full min-h-0 rounded-2xl border border-zinc-200 bg-zinc-50/50">
       {/* Header — minimal, ChatGPT-style */}
-      <header className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-zinc-200 bg-white rounded-t-2xl">
+      <header className="shrink-0 flex items-center gap-3 px-3 sm:px-4 py-3 border-b border-zinc-200 bg-white rounded-t-2xl">
         <Avatar className={cn("h-9 w-9", theme.primaryBg, "text-white")}>
           <AvatarFallback className={cn("bg-transparent text-white")}>
             <AgentIcon className="h-4 w-4" />
@@ -220,7 +220,7 @@ export function ChatInterface({
 
       {/* Messages — scrollable, clean (plain overflow so ref works) */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-4 px-4 py-4 min-h-full">
+        <div className="flex flex-col gap-4 px-2 sm:px-4 py-4 min-h-full">
           {!chatId ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center min-h-[200px]">
               <p className="text-sm text-zinc-500">Loading your chat…</p>
@@ -286,7 +286,7 @@ export function ChatInterface({
       </div>
 
       {/* Input — multimodal with role-based suggested actions */}
-      <div className="shrink-0 px-4 py-4 border-t border-zinc-200 bg-white rounded-b-2xl">
+      <div className="shrink-0 px-2 sm:px-4 py-3 sm:py-4 border-t border-zinc-200 bg-white rounded-b-2xl">
         <MultimodalInput
           suggestedActions={suggestedActions}
           attachments={attachments}
@@ -425,7 +425,7 @@ function MessageBubble({
         {message.type === "product_grid" && (() => {
           const requested = parseRequestedAmounts(message.query);
           return (
-          <div className="rounded-2xl rounded-bl-md border border-zinc-200 bg-white px-3 py-3 sm:px-4 sm:py-4">
+          <div className="rounded-2xl rounded-bl-md border border-zinc-200 bg-white px-2 py-2 sm:px-4 sm:py-4">
             <InteractiveCheckout
               products={message.items.map((item, index): CheckoutProduct => {
                 const match = matchRequestedAmount(item.title, item.item, requested);

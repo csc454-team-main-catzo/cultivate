@@ -81,7 +81,7 @@ export default function AgentSourcing() {
 
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="max-w-4xl w-full mx-auto px-4 sm:px-6 md:px-8 py-6 flex flex-col flex-1 min-h-0">
+        <div className="max-w-4xl w-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 flex flex-col flex-1 min-h-0">
           <div className="shrink-0">
             <h1 className="text-2xl font-semibold text-zinc-900 mb-1">Glean</h1>
             <p className="text-zinc-500 text-sm mb-4">
