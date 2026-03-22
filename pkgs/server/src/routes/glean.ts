@@ -8,6 +8,7 @@ import GleanCart from "../models/GleanCart.js";
 import { runGleanAgent, type InventoryConstraints } from "../services/gleanAgent.js";
 import Listing from "../models/Listing.js";
 import { getProduceMatchTerms } from "../services/produceMatcher.js";
+import { runDailyPriceUpdate } from "../services/dailyPriceUpdater.js";
 
 const glean = new Hono<AuthenticatedContext>();
 
@@ -541,5 +542,29 @@ glean.post(
   }
 );
 
-export default glean;
+/** POST /prices/refresh — Manually trigger a daily wholesale price update from AAFC Infohort. */
+glean.post(
+  "/prices/refresh",
+  describeRoute({
+    operationId: "refreshWholesalePrices",
+    summary:
+      "Trigger a manual refresh of Toronto wholesale produce prices from AAFC Infohort and adjust open listing prices",
+    security: [{ bearerAuth: [] }],
+    responses: {
+      200: { description: "Price update result" },
+      401: { description: "Unauthorized" },
+    },
+  }),
+  authMiddleware(),
+  async (c) => {
+    try {
+      const result = await runDailyPriceUpdate();
+      return c.json(result, 200);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      return c.json({ error: message }, 500);
+    }
+  }
+);
 
+export default glean;

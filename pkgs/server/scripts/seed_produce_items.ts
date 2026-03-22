@@ -22,59 +22,129 @@ type PriceHint = {
   typicalMin: number;
   typicalMax: number;
   suggested: number;
-  source: "statcan_18-10-0245-01";
-  referencePeriod: string; // e.g., "2025-12"
+  source: string;
+  referencePeriod: string;
   notes?: string;
 };
 
-// NOTE: StatCan Food Price Data Hub provides Canada monthly average retail prices
-// for a small set of staple items. We seed those as *suggestions only*.
-// Source values (Dec 2025): apples $5.34/kg, bananas $1.66/kg, potatoes $5.01/kg, tomatoes $5.45/kg.
-const STATCAN_DEC_2025: Record<string, PriceHint> = {
+// Initial seed prices from AAFC Infohort Daily Wholesale-to-Retail Market Prices (Toronto).
+// These are *bootstrap* values only — the daily price updater replaces them with live data.
+// Source: https://open.canada.ca/data/en/dataset/920bc8e2-de26-4bf6-ac41-ed47962d0ff6
+const AAFC_SEED: Record<string, PriceHint> = {
   apple: {
     unit: "kg",
     currency: "CAD",
-    typicalMin: 5.34,
-    typicalMax: 5.34,
-    suggested: 5.34,
-    source: "statcan_18-10-0245-01",
-    referencePeriod: "2025-12",
-    notes: "Monthly avg retail price (Canada). Use as hint only.",
+    typicalMin: 2.65,
+    typicalMax: 4.85,
+    suggested: 4.50,
+    source: "aafc_infohort_toronto",
+    referencePeriod: "seed",
+    notes: "Bootstrap from AAFC Infohort wholesale (Toronto). Replaced daily by live data.",
   },
   banana: {
     unit: "kg",
     currency: "CAD",
-    typicalMin: 1.66,
-    typicalMax: 1.66,
-    suggested: 1.66,
-    source: "statcan_18-10-0245-01",
-    referencePeriod: "2025-12",
-    notes: "Monthly avg retail price (Canada). Use as hint only.",
+    typicalMin: 1.10,
+    typicalMax: 1.76,
+    suggested: 1.72,
+    source: "aafc_infohort_toronto",
+    referencePeriod: "seed",
+    notes: "Bootstrap from AAFC Infohort wholesale (Toronto). Replaced daily by live data.",
   },
   potato: {
     unit: "kg",
     currency: "CAD",
-    typicalMin: 5.01,
-    typicalMax: 5.01,
-    suggested: 5.01,
-    source: "statcan_18-10-0245-01",
-    referencePeriod: "2025-12",
-    notes: "Monthly avg retail price (Canada). Use as hint only.",
+    typicalMin: 1.10,
+    typicalMax: 2.20,
+    suggested: 1.98,
+    source: "aafc_infohort_toronto",
+    referencePeriod: "seed",
+    notes: "Bootstrap from AAFC Infohort wholesale (Toronto). Replaced daily by live data.",
   },
   tomato: {
     unit: "kg",
     currency: "CAD",
-    typicalMin: 5.45,
-    typicalMax: 5.45,
-    suggested: 5.45,
-    source: "statcan_18-10-0245-01",
-    referencePeriod: "2025-12",
-    notes: "Monthly avg retail price (Canada). Use as hint only.",
+    typicalMin: 2.65,
+    typicalMax: 6.61,
+    suggested: 5.56,
+    source: "aafc_infohort_toronto",
+    referencePeriod: "seed",
+    notes: "Bootstrap from AAFC Infohort wholesale (Toronto). Replaced daily by live data.",
+  },
+  carrot: {
+    unit: "kg",
+    currency: "CAD",
+    typicalMin: 0.88,
+    typicalMax: 2.20,
+    suggested: 1.85,
+    source: "aafc_infohort_toronto",
+    referencePeriod: "seed",
+    notes: "Bootstrap from AAFC Infohort wholesale (Toronto). Replaced daily by live data.",
+  },
+  pepper: {
+    unit: "kg",
+    currency: "CAD",
+    typicalMin: 3.31,
+    typicalMax: 6.61,
+    suggested: 5.95,
+    source: "aafc_infohort_toronto",
+    referencePeriod: "seed",
+    notes: "Bootstrap from AAFC Infohort wholesale (Toronto). Replaced daily by live data.",
+  },
+  onion: {
+    unit: "kg",
+    currency: "CAD",
+    typicalMin: 0.66,
+    typicalMax: 1.76,
+    suggested: 1.45,
+    source: "aafc_infohort_toronto",
+    referencePeriod: "seed",
+    notes: "Bootstrap from AAFC Infohort wholesale (Toronto). Replaced daily by live data.",
+  },
+  cucumber: {
+    unit: "kg",
+    currency: "CAD",
+    typicalMin: 1.76,
+    typicalMax: 3.97,
+    suggested: 3.44,
+    source: "aafc_infohort_toronto",
+    referencePeriod: "seed",
+    notes: "Bootstrap from AAFC Infohort wholesale (Toronto). Replaced daily by live data.",
+  },
+  lettuce: {
+    unit: "kg",
+    currency: "CAD",
+    typicalMin: 1.76,
+    typicalMax: 4.41,
+    suggested: 3.70,
+    source: "aafc_infohort_toronto",
+    referencePeriod: "seed",
+    notes: "Bootstrap from AAFC Infohort wholesale (Toronto). Replaced daily by live data.",
+  },
+  broccoli: {
+    unit: "kg",
+    currency: "CAD",
+    typicalMin: 2.20,
+    typicalMax: 4.41,
+    suggested: 3.97,
+    source: "aafc_infohort_toronto",
+    referencePeriod: "seed",
+    notes: "Bootstrap from AAFC Infohort wholesale (Toronto). Replaced daily by live data.",
+  },
+  mushroom: {
+    unit: "kg",
+    currency: "CAD",
+    typicalMin: 4.41,
+    typicalMax: 8.82,
+    suggested: 7.94,
+    source: "aafc_infohort_toronto",
+    referencePeriod: "seed",
+    notes: "Bootstrap from AAFC Infohort wholesale (Toronto). Replaced daily by live data.",
   },
 };
 
 // MVP seed set: common produce in Canada + practical synonyms for matching.
-// Add optional pricing/unit hints where we have StatCan values.
+// Pricing/unit hints are bootstrapped from AAFC Infohort and refreshed daily at runtime.
 const seedItems: Array<{
   canonical: string;
   synonyms: string[];
@@ -88,6 +158,7 @@ const seedItems: Array<{
     synonyms: ["romaine", "iceberg", "leaf lettuce", "mixed greens", "salad greens"],
     defaultUnit: "count",
     commonUnits: ["count"],
+    priceHints: [AAFC_SEED.lettuce],
   },
   { canonical: "spinach", synonyms: ["baby spinach"], defaultUnit: "bunch", commonUnits: ["bunch"] },
   { canonical: "kale", synonyms: ["curly kale", "lacinato kale", "dinosaur kale"], defaultUnit: "bunch", commonUnits: ["bunch"] },
@@ -108,13 +179,13 @@ const seedItems: Array<{
     synonyms: ["tomatoes", "roma tomato", "cherry tomato", "grape tomato"],
     defaultUnit: "kg",
     commonUnits: ["kg", "lb"],
-    priceHints: [STATCAN_DEC_2025.tomato],
+    priceHints: [AAFC_SEED.tomato],
   },
-  { canonical: "cucumber", synonyms: ["cucumbers", "english cucumber", "mini cucumber"], defaultUnit: "count", commonUnits: ["count"] },
+  { canonical: "cucumber", synonyms: ["cucumbers", "english cucumber", "mini cucumber"], defaultUnit: "count", commonUnits: ["count"], priceHints: [AAFC_SEED.cucumber] },
   { canonical: "zucchini", synonyms: ["courgette"], defaultUnit: "kg", commonUnits: ["kg", "lb"] },
-  { canonical: "pepper", synonyms: ["bell pepper", "sweet pepper", "capsicum", "red pepper", "green pepper", "yellow pepper"], defaultUnit: "kg", commonUnits: ["kg", "lb", "count"] },
+  { canonical: "pepper", synonyms: ["bell pepper", "sweet pepper", "capsicum", "red pepper", "green pepper", "yellow pepper"], defaultUnit: "kg", commonUnits: ["kg", "lb", "count"], priceHints: [AAFC_SEED.pepper] },
   { canonical: "jalapeño", synonyms: ["jalapeno", "chili pepper", "green chili"], defaultUnit: "kg", commonUnits: ["kg", "lb"] },
-  { canonical: "broccoli", synonyms: ["broccoli florets"], defaultUnit: "kg", commonUnits: ["kg", "lb"] },
+  { canonical: "broccoli", synonyms: ["broccoli florets"], defaultUnit: "kg", commonUnits: ["kg", "lb"], priceHints: [AAFC_SEED.broccoli] },
   { canonical: "cauliflower", synonyms: [], defaultUnit: "count", commonUnits: ["count"] },
   { canonical: "celery", synonyms: ["celery stalk"], defaultUnit: "count", commonUnits: ["count"] },
   { canonical: "corn", synonyms: ["sweet corn", "corn on the cob", "maize"], defaultUnit: "count", commonUnits: ["count"] },
@@ -125,7 +196,7 @@ const seedItems: Array<{
   { canonical: "brussels sprout", synonyms: ["brussels sprouts"], defaultUnit: "kg", commonUnits: ["kg", "lb"] },
 
   // Alliums
-  { canonical: "onion", synonyms: ["yellow onion", "red onion", "white onion"], defaultUnit: "kg", commonUnits: ["kg", "lb"] },
+  { canonical: "onion", synonyms: ["yellow onion", "red onion", "white onion"], defaultUnit: "kg", commonUnits: ["kg", "lb"], priceHints: [AAFC_SEED.onion] },
   { canonical: "green onion", synonyms: ["scallion", "spring onion"], defaultUnit: "bunch", commonUnits: ["bunch"] },
   { canonical: "garlic", synonyms: ["garlic bulb"], defaultUnit: "kg", commonUnits: ["kg", "lb", "count"] },
   { canonical: "leek", synonyms: ["leeks"], defaultUnit: "count", commonUnits: ["count"] },
@@ -136,10 +207,10 @@ const seedItems: Array<{
     synonyms: ["potatoes", "russet", "yukon gold", "red potato"],
     defaultUnit: "kg",
     commonUnits: ["kg", "lb"],
-    priceHints: [STATCAN_DEC_2025.potato],
+    priceHints: [AAFC_SEED.potato],
   },
   { canonical: "sweet potato", synonyms: ["sweet potatoes", "yam"], defaultUnit: "kg", commonUnits: ["kg", "lb"] },
-  { canonical: "carrot", synonyms: ["carrots"], defaultUnit: "kg", commonUnits: ["kg", "lb"] },
+  { canonical: "carrot", synonyms: ["carrots"], defaultUnit: "kg", commonUnits: ["kg", "lb"], priceHints: [AAFC_SEED.carrot] },
   { canonical: "beet", synonyms: ["beets", "beetroot"], defaultUnit: "kg", commonUnits: ["kg", "lb"] },
   { canonical: "turnip", synonyms: ["turnips"], defaultUnit: "kg", commonUnits: ["kg", "lb"] },
   { canonical: "rutabaga", synonyms: ["swede"], defaultUnit: "kg", commonUnits: ["kg", "lb"] },
@@ -151,7 +222,7 @@ const seedItems: Array<{
   { canonical: "pumpkin", synonyms: [], defaultUnit: "count", commonUnits: ["count"] },
 
   // Mushrooms
-  { canonical: "mushroom", synonyms: ["mushrooms", "button mushroom", "cremini", "portobello", "shiitake"], defaultUnit: "kg", commonUnits: ["kg", "lb"] },
+  { canonical: "mushroom", synonyms: ["mushrooms", "button mushroom", "cremini", "portobello", "shiitake"], defaultUnit: "kg", commonUnits: ["kg", "lb"], priceHints: [AAFC_SEED.mushroom] },
 
   // Fruits
   {
@@ -159,7 +230,7 @@ const seedItems: Array<{
     synonyms: ["apples"],
     defaultUnit: "kg",
     commonUnits: ["kg", "lb", "count"],
-    priceHints: [STATCAN_DEC_2025.apple],
+    priceHints: [AAFC_SEED.apple],
   },
   { canonical: "pear", synonyms: ["pears"], defaultUnit: "kg", commonUnits: ["kg", "lb", "count"] },
   { canonical: "orange", synonyms: ["oranges"], defaultUnit: "kg", commonUnits: ["kg", "lb", "count"] },
@@ -168,7 +239,7 @@ const seedItems: Array<{
     synonyms: ["bananas"],
     defaultUnit: "kg",
     commonUnits: ["kg", "lb", "count"],
-    priceHints: [STATCAN_DEC_2025.banana],
+    priceHints: [AAFC_SEED.banana],
   },
   { canonical: "grape", synonyms: ["grapes"], defaultUnit: "kg", commonUnits: ["kg", "lb"] },
   { canonical: "strawberry", synonyms: ["strawberries"], defaultUnit: "count", commonUnits: ["count"] },

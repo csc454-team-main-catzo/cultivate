@@ -56,7 +56,7 @@ function fallbackAgentResponse(userText: string, role: UserRole): AgentResponseP
         item: item.replace(/s$/, ""),
         description: userText.slice(0, 200),
         weightKg: unit === "lb" ? weight * 0.453592 : weight,
-        pricePerKg: 2.5,
+        pricePerKg: 3.5,
         unit: unit === "lb" ? "lb" : "kg",
       },
       userMessage: userText,
