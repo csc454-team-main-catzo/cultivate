@@ -9,6 +9,9 @@ export type {
   AgentMessage,
   InventoryDraftData,
   ProductGridItem,
+  StrategyOptionsMessage,
+  StrategyOptionItem,
+  SourcingPlanData,
   UserRole,
 } from "./types";
 export type { GleanChatListItem } from "./hooks/useGleanChats";

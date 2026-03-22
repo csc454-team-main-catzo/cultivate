@@ -34,6 +34,23 @@ export interface UploadImageResponse {
   size?: number;
 }
 
+export interface ParsedSheetLineItem {
+  item: string;
+  qtyNeeded: number;
+  unit: "kg" | "lb" | "count" | "bunch";
+  maxPricePerUnit?: number;
+  acceptSubstitutes?: boolean;
+  notes?: string;
+}
+
+export interface ParseSourcingSheetResponse {
+  filename: string;
+  sheet: string;
+  parsedCount: number;
+  lineItems: ParsedSheetLineItem[];
+  sourceRows: number[];
+}
+
 export interface DraftReason {
   desc: string;
   score: number;
@@ -245,6 +262,67 @@ export function useListingActions() {
     [getAuthHeaders]
   );
 
+  const parseSourcingSheet = useCallback(
+    async (file: File): Promise<ParseSourcingSheetResponse> => {
+      const token = await getAccessTokenSilently({
+        authorizationParams: { audience: import.meta.env.VITE_AUTH0_AUDIENCE },
+      });
+      const formData = new FormData();
+      formData.append("sheet", file);
+
+      const res = await fetch(`${CFG.API_URL}/api/sourcing/parse-sheet`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = (await res.json().catch(() => ({}))) as ParseSourcingSheetResponse & {
+        error?: string;
+      };
+
+      if (!res.ok) {
+        throw new ApiStatusError(
+          res.status,
+          data.error || "Failed to parse sourcing sheet"
+        );
+      }
+
+      if (!Array.isArray(data.lineItems)) {
+        throw new Error("Parse response missing lineItems");
+      }
+
+      return data;
+    },
+    [getAccessTokenSilently]
+  );
+
+  const runOptimizer = useCallback(
+    async (lineItems: ParsedSheetLineItem[]) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${CFG.API_URL}/api/sourcing/optimize`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ lineItems }),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & {
+        error?: string;
+      };
+
+      if (!res.ok) {
+        throw new ApiStatusError(
+          res.status,
+          data.error || "Optimization failed"
+        );
+      }
+
+      return data;
+    },
+    [getAuthHeaders]
+  );
+
   return {
     createListing,
     updateListing,
@@ -252,6 +330,8 @@ export function useListingActions() {
     matchListingResponse,
     deleteListingResponse,
     uploadImage,
+    parseSourcingSheet,
+    runOptimizer,
     getDraft,
   };
 }

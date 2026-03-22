@@ -5,7 +5,7 @@
 
 export type MessageRole = "user" | "assistant";
 
-export type MessageContentType = "text" | "product_grid" | "inventory_form";
+export type MessageContentType = "text" | "product_grid" | "inventory_form" | "strategy_options";
 
 export interface AgentMessageBase {
   id: string;
@@ -65,9 +65,75 @@ export interface InventoryFormMessage extends AgentMessageBase {
   userMessage?: string;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Strategy options (sourcing optimizer output)                       */
+/* ------------------------------------------------------------------ */
+
+export interface StrategyMetricsSummary {
+  totalCost: number;
+  supplierCount: number;
+  coveragePercent: number;
+  avgMatchScore: number;
+  estimatedDelivery?: string;
+}
+
+export interface StrategyOptionItem {
+  strategyId: string;
+  name: string;
+  description: string;
+  rank: number;
+  metrics: StrategyMetricsSummary;
+  tradeoffs: string[];
+}
+
+export interface StrategyAllocation {
+  lineItemIndex: number;
+  lineItemName: string;
+  supplier: {
+    listingId: string;
+    supplierId: string;
+    supplierName: string;
+    item: string;
+    title: string;
+    pricePerUnit: number;
+    imageId?: string;
+  };
+  allocatedQty: number;
+  unit: string;
+  subtotal: number;
+  matchType: string;
+  matchScore: number;
+  deliveryWindow?: { startAt: string; endAt: string };
+}
+
+export interface SourcingPlanData {
+  orderId: string;
+  strategies: Array<{
+    id: string;
+    name: string;
+    allocations: StrategyAllocation[];
+  }>;
+  unfulfillable: Array<{
+    lineItemName: string;
+    qtyNeeded: number;
+    qtyAvailable: number;
+    reason: string;
+  }>;
+  summary: string;
+  reasoning: string;
+}
+
+export interface StrategyOptionsMessage extends AgentMessageBase {
+  type: "strategy_options";
+  options: StrategyOptionItem[];
+  recommendedStrategyId: string | null;
+  sourcingPlan: SourcingPlanData;
+}
+
 export type AgentMessage =
   | TextMessage
   | ProductGridMessage
-  | InventoryFormMessage;
+  | InventoryFormMessage
+  | StrategyOptionsMessage;
 
 export type UserRole = "farmer" | "restaurant" | "admin";

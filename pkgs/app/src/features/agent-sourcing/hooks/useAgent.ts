@@ -112,6 +112,8 @@ export interface UseAgentReturn {
   sendMessage: (text: string, options?: { imageId?: string }) => void;
   confirmInventoryDraft?: (draft: InventoryDraftData) => void;
   cancelThinking?: () => void;
+  pushMessages: (...msgs: AgentMessage[]) => void;
+  setThinking: (v: boolean) => void;
 }
 
 export function useAgent(options: UseAgentOptions): UseAgentReturn {
@@ -350,10 +352,20 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     streamCancelRef.current();
   }, []);
 
+  const pushMessages = useCallback((...msgs: AgentMessage[]) => {
+    setMessages((prev) => [...prev, ...msgs]);
+  }, []);
+
+  const setThinking = useCallback((v: boolean) => {
+    setIsThinking(v);
+  }, []);
+
   return {
     messages,
     isThinking,
     sendMessage,
     cancelThinking,
+    pushMessages,
+    setThinking,
   };
 }

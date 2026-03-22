@@ -477,7 +477,7 @@ export function MultimodalInput({
         onChange={handleFileChange}
         tabIndex={-1}
         disabled={isAttachmentDisabled}
-        accept="image/*,video/*,audio/*,.pdf"
+        accept="image/*,video/*,audio/*,.pdf,.csv,text/csv,application/csv"
       />
 
       {(attachments.length > 0 || uploadQueue.length > 0) && (

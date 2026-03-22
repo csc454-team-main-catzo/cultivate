@@ -10,6 +10,7 @@ import produceItemRoutes from './routes/produce-items.js'
 import userRoutes from './routes/users.js'
 import chatRoutes from './routes/chats.js'
 import gleanRoutes from './routes/glean.js'
+import optimizationRoutes from './routes/optimization.js'
 
 type AppBindings = {
   Variables: any
@@ -81,6 +82,7 @@ app.route('/api', imageRoutes)
 app.route('/api', produceItemRoutes)
 app.route('/api/chat', chatRoutes)
 app.route('/api/glean', gleanRoutes)
+app.route('/api/sourcing', optimizationRoutes)
 
 app.get(
   '/openapi.json',
