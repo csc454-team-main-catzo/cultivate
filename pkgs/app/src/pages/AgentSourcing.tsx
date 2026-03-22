@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUser } from "../providers/userContext";
 import { useListingActions } from "../hooks/useListingActions";
 import { ChatInterface } from "../features/agent-sourcing/components/chat-interface";
@@ -8,8 +8,11 @@ import { useGleanChats } from "../features/agent-sourcing/hooks/useGleanChats";
 import { getUserRole } from "../lib/auth";
 import type { InventoryDraftData } from "../features/agent-sourcing/types";
 
+const NEW_CHAT_QUERY = "new";
+
 export default function AgentSourcing() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useUser();
   const { createListing } = useListingActions();
   const role = getUserRole(user ?? null) ?? "farmer";
@@ -18,11 +21,18 @@ export default function AgentSourcing() {
     chats,
     activeChatId,
     error: chatLoadError,
+    isLoading: chatsLoading,
     setActiveChatId,
     createChat,
     renameChat,
     deleteChat,
   } = useGleanChats(role);
+
+  useEffect(() => {
+    if (searchParams.get(NEW_CHAT_QUERY) !== "1" || chatsLoading) return;
+    setSearchParams({}, { replace: true });
+    void createChat();
+  }, [searchParams, chatsLoading, createChat, setSearchParams]);
 
   const [postError, setPostError] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
