@@ -20,8 +20,7 @@
     "multer": "^2.0.2",
     "openai": "^6.27.0",
     "sharp": "^0.34.5",
-    "valibot": "^1.2.0",
-    "xlsx": "^0.18.5"
+    "valibot": "^1.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.17",

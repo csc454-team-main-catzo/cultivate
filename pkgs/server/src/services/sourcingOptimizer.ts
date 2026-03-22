@@ -152,6 +152,15 @@ export interface SourcingPlan {
   lineItems: OrderLineItem[];
   candidates: SupplierCandidate[];
   strategies: FulfillmentStrategy[];
+  strategyOptions: Array<{
+    strategyId: string;
+    name: string;
+    description: string;
+    rank: number;
+    metrics: StrategyMetrics;
+    tradeoffs: string[];
+  }>;
+  recommendedStrategyId: string | null;
   unfulfillable: UnfulfillableItem[];
   summary: string;
   reasoning: string;
@@ -757,7 +766,13 @@ function buildTradeoffs(
 
 async function generateExplanation(
   client: LLMClient | null,
-  plan: Omit<SourcingPlan, "summary" | "reasoning">
+  plan: {
+    orderId: string;
+    lineItems: OrderLineItem[];
+    candidates: SupplierCandidate[];
+    strategies: FulfillmentStrategy[];
+    unfulfillable: UnfulfillableItem[];
+  }
 ): Promise<{ summary: string; reasoning: string }> {
   const fallback = buildFallbackExplanation(plan);
   if (!client) return fallback;
@@ -803,7 +818,13 @@ async function generateExplanation(
   return fallback;
 }
 
-function buildFallbackExplanation(plan: Omit<SourcingPlan, "summary" | "reasoning">): { summary: string; reasoning: string } {
+function buildFallbackExplanation(plan: {
+  orderId: string;
+  lineItems: OrderLineItem[];
+  candidates: SupplierCandidate[];
+  strategies: FulfillmentStrategy[];
+  unfulfillable: UnfulfillableItem[];
+}): { summary: string; reasoning: string } {
   const top = plan.strategies[0];
   if (!top) {
     return {
@@ -859,6 +880,8 @@ export async function runSourcingOptimizer(req: OptimizationRequest): Promise<So
       lineItems: [],
       candidates: [],
       strategies: [],
+      strategyOptions: [],
+      recommendedStrategyId: null,
       unfulfillable: [],
       summary: "No order items could be identified. Please provide specific items and quantities.",
       reasoning: "The optimizer requires at least one line item (produce name + quantity) to generate a sourcing plan.",
@@ -888,6 +911,15 @@ export async function runSourcingOptimizer(req: OptimizationRequest): Promise<So
   // Phase 5: Generate explanation
   const planDraft = { orderId, lineItems, candidates: allCandidates, strategies, unfulfillable: allUnfulfillable };
   const { summary, reasoning } = await generateExplanation(client, planDraft);
+  const strategyOptions = strategies.map((s) => ({
+    strategyId: s.id,
+    name: s.name,
+    description: s.description,
+    rank: s.rank,
+    metrics: s.metrics,
+    tradeoffs: s.tradeoffs,
+  }));
+  const recommendedStrategyId = strategies[0]?.id ?? null;
 
-  return { ...planDraft, summary, reasoning };
+  return { ...planDraft, strategyOptions, recommendedStrategyId, summary, reasoning };
 }

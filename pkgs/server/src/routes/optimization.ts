@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { describeRoute } from "hono-openapi";
 import * as v from "valibot";
-import * as XLSX from "xlsx";
 import { authMiddleware } from "../middleware/auth.js";
 import type { AuthenticatedContext } from "../middleware/types.js";
 import {
@@ -12,8 +11,6 @@ import {
 
 const optimization = new Hono<AuthenticatedContext>();
 const SUPPORTED_SHEET_MIME_TYPES = new Set([
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.ms-excel",
   "text/csv",
   "application/csv",
   "text/plain",
@@ -82,20 +79,55 @@ function parseNumberCell(value: unknown): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function parseCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === "\"") {
+      if (inQuotes && line[i + 1] === "\"") {
+        cur += "\"";
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+    if (ch === "," && !inQuotes) {
+      out.push(cur.trim());
+      cur = "";
+      continue;
+    }
+    cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+function parseCsvRows(csv: string): string[][] {
+  const lines = csv
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.map(parseCsvLine);
+}
+
 // ---------------------------------------------------------------------------
-// POST /parse-sheet — Parse uploaded Excel/CSV into sourcing line items
+// POST /parse-sheet — Parse uploaded CSV into sourcing line items
 // ---------------------------------------------------------------------------
 
 optimization.post(
   "/parse-sheet",
   describeRoute({
     operationId: "parseSourcingSheet",
-    summary: "Parse an uploaded Excel/CSV order sheet into structured line items",
+    summary: "Parse an uploaded CSV order sheet into structured line items",
     security: [{ bearerAuth: [] }, {}],
     responses: {
       200: { description: "Parsed line items from sheet rows" },
       400: { description: "Invalid file or no parseable rows" },
-      415: { description: "Unsupported file format" },
+      415: { description: "Unsupported file format (CSV only)" },
     },
   }),
   authMiddleware({ optional: true }),
@@ -114,33 +146,17 @@ optimization.post(
       }
 
       const lowerName = file.name.toLowerCase();
-      const byExtension =
-        lowerName.endsWith(".xlsx") ||
-        lowerName.endsWith(".xls") ||
-        lowerName.endsWith(".csv");
+      const byExtension = lowerName.endsWith(".csv");
       const byMime = !file.type || SUPPORTED_SHEET_MIME_TYPES.has(file.type);
       if (!byExtension && !byMime) {
-        return c.json(
-          { error: "Unsupported file format. Use .xlsx, .xls, or .csv" },
-          415
-        );
+        return c.json({ error: "Unsupported file format. Use .csv" }, 415);
       }
 
       const buffer = Buffer.from(await file.arrayBuffer());
-      const workbook = XLSX.read(buffer, { type: "buffer" });
-      const firstSheetName = workbook.SheetNames[0];
-      if (!firstSheetName) {
-        return c.json({ error: "Sheet is empty" }, 400);
-      }
-
-      const sheet = workbook.Sheets[firstSheetName];
-      const rows = XLSX.utils.sheet_to_json<Array<unknown>>(sheet, {
-        header: 1,
-        blankrows: false,
-        raw: true,
-      });
+      const csvText = new TextDecoder("utf-8").decode(buffer);
+      const rows = parseCsvRows(csvText);
       if (!rows.length) {
-        return c.json({ error: "Sheet is empty" }, 400);
+        return c.json({ error: "CSV is empty" }, 400);
       }
 
       const headerRow = rows[0] ?? [];
@@ -227,7 +243,7 @@ optimization.post(
       return c.json(
         {
           filename: file.name,
-          sheet: firstSheetName,
+          sheet: "csv",
           parsedCount: lineItems.length,
           lineItems: lineItems.map(({ sourceRow, ...rest }) => rest),
           sourceRows: lineItems.map((r) => r.sourceRow),

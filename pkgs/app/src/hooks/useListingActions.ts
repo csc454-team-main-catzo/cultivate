@@ -298,6 +298,31 @@ export function useListingActions() {
     [getAccessTokenSilently]
   );
 
+  const runOptimizer = useCallback(
+    async (lineItems: ParsedSheetLineItem[]) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${CFG.API_URL}/api/sourcing/optimize`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ lineItems }),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & {
+        error?: string;
+      };
+
+      if (!res.ok) {
+        throw new ApiStatusError(
+          res.status,
+          data.error || "Optimization failed"
+        );
+      }
+
+      return data;
+    },
+    [getAuthHeaders]
+  );
+
   return {
     createListing,
     updateListing,
@@ -306,6 +331,7 @@ export function useListingActions() {
     deleteListingResponse,
     uploadImage,
     parseSourcingSheet,
+    runOptimizer,
     getDraft,
   };
 }

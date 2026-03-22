@@ -1,12 +1,17 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Tractor, ChefHat, Bot, User } from "lucide-react";
+import { Tractor, ChefHat, Bot, User, DollarSign, Zap, Award, LayoutGrid, Star, CheckCircle2 } from "lucide-react";
 import { useAgent } from "../hooks/useAgent";
 import { getAgentTheme } from "../lib/theme";
 import type {
   AgentMessage,
   InventoryDraftData,
   UserRole,
+  StrategyOptionsMessage,
+  StrategyOptionItem,
+  StrategyAllocation,
+  SourcingPlanData,
+  ProductGridItem,
 } from "../types";
 import { InventoryDraftCard } from "./InventoryDraftCard";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -85,8 +90,8 @@ export function ChatInterface({
   onClearPostError,
 }: ChatInterfaceProps) {
   const { isAuthenticated, getAccessTokenSilently } = useAuth0();
-  const { uploadImage, parseSourcingSheet } = useListingActions();
-  const { messages, isThinking, sendMessage, cancelThinking } = useAgent({
+  const { uploadImage, parseSourcingSheet, runOptimizer } = useListingActions();
+  const { messages, isThinking, sendMessage, cancelThinking, pushMessages, setThinking } = useAgent({
     role,
     chatId,
   });
@@ -107,6 +112,8 @@ export function ChatInterface({
 
   const AgentIcon = role === "farmer" ? Tractor : ChefHat;
 
+  const generateMsgId = () => `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
   const handleSendMessage = useCallback(
     async ({ input, attachments }: { input: string; attachments: Attachment[] }) => {
       const trimmed = input.trim();
@@ -118,15 +125,100 @@ export function ChatInterface({
         const name = a.name.toLowerCase();
         const type = (a.contentType ?? "").toLowerCase();
         return (
-          name.endsWith(".xlsx") ||
-          name.endsWith(".xls") ||
           name.endsWith(".csv") ||
-          type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-          type === "application/vnd.ms-excel" ||
           type === "text/csv" ||
           type === "application/csv"
         );
       };
+
+      const sheetAttachment = attachments.find((a) => a.file && isSheetAttachment(a));
+
+      if (role === "restaurant" && sheetAttachment?.file) {
+        const userMsg: AgentMessage = {
+          id: generateMsgId(),
+          role: "user",
+          type: "text",
+          content: trimmed || `Uploaded ${sheetAttachment.name} for optimization`,
+          createdAt: new Date(),
+        };
+        pushMessages(userMsg);
+        setThinking(true);
+
+        try {
+          const parsed = await parseSourcingSheet(sheetAttachment.file);
+          if (!parsed.lineItems.length) {
+            pushMessages({
+              id: generateMsgId(),
+              role: "assistant",
+              type: "text",
+              content: "Could not parse any valid items from the CSV. Please check the file has 'item' and 'qty' columns.",
+              createdAt: new Date(),
+            });
+            setThinking(false);
+            return;
+          }
+
+          const plan = await runOptimizer(parsed.lineItems);
+          const planData = plan as unknown as {
+            strategyOptions?: StrategyOptionItem[];
+            recommendedStrategyId?: string | null;
+            strategies?: Array<{ id: string; name: string; allocations: StrategyAllocation[] }>;
+            unfulfillable?: Array<{ lineItemName: string; qtyNeeded: number; qtyAvailable: number; reason: string }>;
+            summary?: string;
+            reasoning?: string;
+            orderId?: string;
+          };
+
+          const options = planData.strategyOptions ?? [];
+          if (options.length === 0) {
+            pushMessages({
+              id: generateMsgId(),
+              role: "assistant",
+              type: "text",
+              content: planData.summary || "No fulfillment strategies could be generated. There may not be enough supply listings to match your order.",
+              createdAt: new Date(),
+            });
+            setThinking(false);
+            return;
+          }
+
+          const sourcingPlan: SourcingPlanData = {
+            orderId: planData.orderId ?? "",
+            strategies: (planData.strategies ?? []).map((s) => ({
+              id: s.id,
+              name: s.name,
+              allocations: s.allocations,
+            })),
+            unfulfillable: planData.unfulfillable ?? [],
+            summary: planData.summary ?? "",
+            reasoning: planData.reasoning ?? "",
+          };
+
+          const strategyMsg: StrategyOptionsMessage = {
+            id: generateMsgId(),
+            role: "assistant",
+            type: "strategy_options",
+            createdAt: new Date(),
+            options,
+            recommendedStrategyId: planData.recommendedStrategyId ?? null,
+            sourcingPlan: sourcingPlan,
+          };
+
+          pushMessages(strategyMsg);
+        } catch (err) {
+          console.error("Optimization failed:", err);
+          pushMessages({
+            id: generateMsgId(),
+            role: "assistant",
+            type: "text",
+            content: `Optimization failed: ${err instanceof Error ? err.message : "Unknown error"}. You can try again or describe your order in text.`,
+            createdAt: new Date(),
+          });
+        } finally {
+          setThinking(false);
+        }
+        return;
+      }
 
       let imageId: string | undefined;
       const imageAttachment = attachments.find(
@@ -141,36 +233,53 @@ export function ChatInterface({
         }
       }
 
-      let parsedSheetText = "";
-      const sheetAttachment = attachments.find((a) => a.file && isSheetAttachment(a));
-      if (role === "restaurant" && sheetAttachment?.file) {
-        try {
-          const parsed = await parseSourcingSheet(sheetAttachment.file);
-          const lineText = parsed.lineItems
-            .map((li) => {
-              const maxPrice =
-                typeof li.maxPricePerUnit === "number"
-                  ? ` (max $${li.maxPricePerUnit}/${li.unit})`
-                  : "";
-              const notes = li.notes ? `, notes: ${li.notes}` : "";
-              return `${li.qtyNeeded} ${li.unit} ${li.item}${maxPrice}${notes}`;
-            })
-            .join("; ");
-          parsedSheetText = lineText
-            ? `Please optimize this uploaded order sheet into sourcing strategies: ${lineText}`
-            : "";
-        } catch (err) {
-          console.error("Failed to parse uploaded sheet:", err);
-        }
-      }
-
-      const textToSend = [trimmed, parsedSheetText]
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .join("\n\n") || (imageId ? "Create listing from this photo" : "");
+      const textToSend = trimmed || (imageId ? "Create listing from this photo" : "");
       if (textToSend || imageId) sendMessage(textToSend, imageId ? { imageId } : undefined);
     },
-    [chatId, sendMessage, onClearPostError, uploadImage, parseSourcingSheet, role]
+    [chatId, sendMessage, onClearPostError, uploadImage, parseSourcingSheet, runOptimizer, role, pushMessages, setThinking]
+  );
+
+  const handleSelectStrategy = useCallback(
+    (msg: StrategyOptionsMessage, strategyId: string) => {
+      const strat = msg.sourcingPlan.strategies.find((s) => s.id === strategyId);
+      if (!strat || strat.allocations.length === 0) return;
+
+      const items: ProductGridItem[] = strat.allocations.map((alloc, idx) => ({
+        id: `alloc-${idx}-${alloc.supplier.listingId}`,
+        listingId: alloc.supplier.listingId,
+        title: alloc.supplier.title,
+        item: alloc.supplier.item,
+        price: alloc.supplier.pricePerUnit,
+        qty: alloc.allocatedQty,
+        unit: alloc.unit,
+        farmerName: alloc.supplier.supplierName,
+        farmerId: alloc.supplier.supplierId,
+        imageId: alloc.supplier.imageId,
+        imageUrl: alloc.supplier.imageId
+          ? `${CFG.API_URL}/api/images/${alloc.supplier.imageId}`
+          : undefined,
+        deliveryWindow: alloc.deliveryWindow,
+      }));
+
+      pushMessages(
+        {
+          id: generateMsgId(),
+          role: "assistant",
+          type: "text",
+          content: `Here are the allocations for the "${strat.name}" strategy:`,
+          createdAt: new Date(),
+        },
+        {
+          id: generateMsgId(),
+          role: "assistant",
+          type: "product_grid",
+          query: "",
+          items,
+          createdAt: new Date(),
+        }
+      );
+    },
+    [pushMessages]
   );
 
   const suggestedActions =
@@ -287,6 +396,7 @@ export function ChatInterface({
                   theme={theme}
                   AgentIcon={AgentIcon}
                   onPostInventory={onPostInventory}
+                  onSelectStrategy={handleSelectStrategy}
                   cart={cart}
                   onCartChange={setCart}
                   onCheckout={({ cart: checkoutCart, total }) => {
@@ -413,9 +523,106 @@ interface MessageBubbleProps {
   theme: ReturnType<typeof getAgentTheme>;
   AgentIcon: typeof Bot;
   onPostInventory?: (draft: InventoryDraftData) => void;
+  onSelectStrategy?: (msg: StrategyOptionsMessage, strategyId: string) => void;
   cart: CartItem[];
   onCartChange: (cart: CartItem[]) => void;
   onCheckout: (params: { cart: CartItem[]; total: number }) => void;
+}
+
+const STRATEGY_ICONS: Record<string, typeof DollarSign> = {
+  "Lowest Cost": DollarSign,
+  "Highest Quality": Award,
+  "Fastest Delivery": Zap,
+  "Fewest Suppliers": LayoutGrid,
+};
+
+function getStrategyIcon(name: string) {
+  for (const [key, Icon] of Object.entries(STRATEGY_ICONS)) {
+    if (name.toLowerCase().includes(key.toLowerCase())) return Icon;
+  }
+  return LayoutGrid;
+}
+
+function StrategyCard({
+  option,
+  isRecommended,
+  isSelected,
+  onSelect,
+}: {
+  option: StrategyOptionItem;
+  isRecommended: boolean;
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  const Icon = getStrategyIcon(option.name);
+  const m = option.metrics;
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "relative flex flex-col gap-2 rounded-xl border-2 p-3 sm:p-4 text-left transition-all hover:shadow-md",
+        isSelected
+          ? "border-emerald-500 bg-emerald-50 shadow-md"
+          : isRecommended
+            ? "border-amber-400 bg-amber-50/50 hover:border-amber-500"
+            : "border-zinc-200 bg-white hover:border-zinc-300"
+      )}
+    >
+      {isRecommended && !isSelected && (
+        <span className="absolute -top-2.5 right-3 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-white">
+          <Star className="h-3 w-3" /> Recommended
+        </span>
+      )}
+      {isSelected && (
+        <span className="absolute -top-2.5 right-3 inline-flex items-center gap-1 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+          <CheckCircle2 className="h-3 w-3" /> Selected
+        </span>
+      )}
+
+      <div className="flex items-center gap-2">
+        <div className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+          isSelected ? "bg-emerald-100 text-emerald-600" : "bg-zinc-100 text-zinc-600"
+        )}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-zinc-900 truncate">{option.name}</p>
+        </div>
+      </div>
+
+      <p className="text-xs text-zinc-500 line-clamp-2">{option.description}</p>
+
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+        <div>
+          <span className="text-zinc-400">Cost</span>
+          <span className="ml-1 font-medium text-zinc-700">${m.totalCost.toFixed(2)}</span>
+        </div>
+        <div>
+          <span className="text-zinc-400">Coverage</span>
+          <span className="ml-1 font-medium text-zinc-700">{m.coveragePercent.toFixed(0)}%</span>
+        </div>
+        <div>
+          <span className="text-zinc-400">Suppliers</span>
+          <span className="ml-1 font-medium text-zinc-700">{m.supplierCount}</span>
+        </div>
+        <div>
+          <span className="text-zinc-400">Match</span>
+          <span className="ml-1 font-medium text-zinc-700">{(m.avgMatchScore * 100).toFixed(0)}%</span>
+        </div>
+      </div>
+
+      {option.tradeoffs.length > 0 && (
+        <ul className="text-[11px] text-zinc-400 space-y-0.5">
+          {option.tradeoffs.slice(0, 2).map((t, i) => (
+            <li key={i}>• {t}</li>
+          ))}
+        </ul>
+      )}
+    </button>
+  );
 }
 
 function MessageBubble({
@@ -424,11 +631,13 @@ function MessageBubble({
   theme,
   AgentIcon,
   onPostInventory,
+  onSelectStrategy,
   cart,
   onCartChange,
   onCheckout,
 }: MessageBubbleProps) {
   const isUser = message.role === "user";
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   if (isUser) {
     const content = message.type === "text" ? message.content : "";
@@ -464,6 +673,45 @@ function MessageBubble({
             )}
           </div>
         )}
+        {message.type === "strategy_options" && (() => {
+          const stratMsg = message as StrategyOptionsMessage;
+          return (
+            <div className="rounded-2xl rounded-bl-md border border-zinc-200 bg-zinc-50 px-3 py-3 sm:px-4 sm:py-4 space-y-3">
+              {stratMsg.sourcingPlan.summary && (
+                <p className="text-sm text-zinc-700">{stratMsg.sourcingPlan.summary}</p>
+              )}
+              <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">
+                Select a sourcing strategy
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {stratMsg.options
+                  .sort((a, b) => a.rank - b.rank)
+                  .map((opt) => (
+                    <StrategyCard
+                      key={opt.strategyId}
+                      option={opt}
+                      isRecommended={opt.strategyId === stratMsg.recommendedStrategyId}
+                      isSelected={selectedId === opt.strategyId}
+                      onSelect={() => {
+                        setSelectedId(opt.strategyId);
+                        onSelectStrategy?.(stratMsg, opt.strategyId);
+                      }}
+                    />
+                  ))}
+              </div>
+              {stratMsg.sourcingPlan.unfulfillable.length > 0 && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700 space-y-1">
+                  <p className="font-medium">Some items can't be fully fulfilled:</p>
+                  {stratMsg.sourcingPlan.unfulfillable.map((u, i) => (
+                    <p key={i}>
+                      {u.lineItemName}: need {u.qtyNeeded}, available {u.qtyAvailable} — {u.reason}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {message.type === "product_grid" && (() => {
           const requested = parseRequestedAmounts(message.query);
           return (
