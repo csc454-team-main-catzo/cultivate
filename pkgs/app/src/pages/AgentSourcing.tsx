@@ -1,11 +1,13 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { MessageSquarePlus } from "lucide-react";
 import { useUser } from "../providers/userContext";
 import { useListingActions } from "../hooks/useListingActions";
 import { ChatInterface } from "../features/agent-sourcing/components/chat-interface";
 import { GleanChatSidebar } from "../features/agent-sourcing/components/GleanChatSidebar";
 import { useGleanChats } from "../features/agent-sourcing/hooks/useGleanChats";
 import { getUserRole } from "../lib/auth";
+import { Button } from "../components/ui/button";
 import type { InventoryDraftData } from "../features/agent-sourcing/types";
 
 export default function AgentSourcing() {
@@ -17,12 +19,15 @@ export default function AgentSourcing() {
   const {
     chats,
     activeChatId,
+    isLoading: chatsLoading,
     error: chatLoadError,
     setActiveChatId,
     createChat,
     renameChat,
     deleteChat,
   } = useGleanChats(role);
+
+  const noChats = !chatsLoading && chats.length === 0;
 
   const [postError, setPostError] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -99,12 +104,36 @@ export default function AgentSourcing() {
             </div>
           )}
           <div className="flex-1 min-h-0">
-            <ChatInterface
-              role={role}
-              chatId={activeChatId}
-              onPostInventory={handlePostInventory}
-              onClearPostError={() => setPostError(null)}
-            />
+            {noChats ? (
+              <div className="flex flex-col h-full items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-50/50">
+                <div className="flex flex-col items-center gap-4 text-center px-6">
+                  <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-100 text-zinc-400">
+                    <MessageSquarePlus className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <p className="text-base font-medium text-zinc-900">
+                      No conversations yet
+                    </p>
+                    <p className="mt-1 text-sm text-zinc-500 max-w-[280px]">
+                      {role === "farmer"
+                        ? "Start a chat to draft listings from your harvest."
+                        : "Start a chat to find and source local produce."}
+                    </p>
+                  </div>
+                  <Button onClick={handleCreateChat} className="gap-2">
+                    <MessageSquarePlus className="w-4 h-4" />
+                    New chat
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <ChatInterface
+                role={role}
+                chatId={activeChatId}
+                onPostInventory={handlePostInventory}
+                onClearPostError={() => setPostError(null)}
+              />
+            )}
           </div>
         </div>
       </div>

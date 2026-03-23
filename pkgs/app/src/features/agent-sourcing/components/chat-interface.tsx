@@ -261,6 +261,24 @@ export function ChatInterface({
         deliveryWindow: alloc.deliveryWindow,
       }));
 
+      // Auto-populate cart with the strategy's allocated quantities
+      const autoCart: CartItem[] = items.map((item, index): CartItem => ({
+        id: item.id || `agent-${index}`,
+        listingId: item.listingId || item.id,
+        name: item.title,
+        price: item.price,
+        category: item.item,
+        image:
+          item.imageUrl ??
+          "https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?auto=format&fit=crop&w=600&q=80",
+        color: item.farmerName ?? "",
+        unit: (item.unit as ProductUnit) ?? "kg",
+        availableQty: item.qty,
+        deliveryWindow: item.deliveryWindow,
+        quantity: item.qty,
+      }));
+      setCart(autoCart);
+
       pushMessages(
         {
           id: generateMsgId(),
