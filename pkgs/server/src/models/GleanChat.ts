@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 
 export type GleanMessageRole = "user" | "assistant";
-export type GleanMessageType = "text" | "product_grid" | "inventory_form";
+export type GleanMessageType = "text" | "product_grid" | "inventory_form" | "strategy_options";
 
 export interface IGleanProductGridItem {
   id: string;
@@ -26,6 +26,60 @@ export interface IGleanInventoryDraftData {
   unit?: "kg" | "lb" | "count" | "bunch";
 }
 
+export interface IGleanStrategyMetrics {
+  totalCost: number;
+  supplierCount: number;
+  coveragePercent: number;
+  avgMatchScore: number;
+  estimatedDelivery?: string;
+}
+
+export interface IGleanStrategyOption {
+  strategyId: string;
+  name: string;
+  description: string;
+  rank: number;
+  metrics: IGleanStrategyMetrics;
+  tradeoffs: string[];
+}
+
+export interface IGleanStrategyAllocation {
+  lineItemIndex: number;
+  lineItemName: string;
+  supplier: {
+    listingId: string;
+    supplierId: string;
+    supplierName: string;
+    item: string;
+    title: string;
+    pricePerUnit: number;
+    imageId?: string;
+  };
+  allocatedQty: number;
+  unit: string;
+  subtotal: number;
+  matchType: string;
+  matchScore: number;
+  deliveryWindow?: { startAt: string; endAt: string };
+}
+
+export interface IGleanSourcingPlan {
+  orderId: string;
+  strategies: Array<{
+    id: string;
+    name: string;
+    allocations: IGleanStrategyAllocation[];
+  }>;
+  unfulfillable: Array<{
+    lineItemName: string;
+    qtyNeeded: number;
+    qtyAvailable: number;
+    reason: string;
+  }>;
+  summary: string;
+  reasoning: string;
+}
+
 export interface IGleanChatMessage {
   _id: Types.ObjectId;
   role: GleanMessageRole;
@@ -33,6 +87,9 @@ export interface IGleanChatMessage {
   content?: string;
   items?: IGleanProductGridItem[];
   draft?: IGleanInventoryDraftData;
+  options?: IGleanStrategyOption[];
+  recommendedStrategyId?: string | null;
+  sourcingPlan?: IGleanSourcingPlan;
   createdAt: Date;
 }
 
@@ -74,13 +131,110 @@ const GleanInventoryDraftSchema = new Schema<IGleanInventoryDraftData>(
   { _id: false }
 );
 
+const GleanStrategyMetricsSchema = new Schema<IGleanStrategyMetrics>(
+  {
+    totalCost: { type: Number, required: true },
+    supplierCount: { type: Number, required: true },
+    coveragePercent: { type: Number, required: true },
+    avgMatchScore: { type: Number, required: true },
+    estimatedDelivery: { type: String, required: false },
+  },
+  { _id: false }
+);
+
+const GleanStrategyOptionSchema = new Schema<IGleanStrategyOption>(
+  {
+    strategyId: { type: String, required: true },
+    name: { type: String, required: true },
+    description: { type: String, required: true },
+    rank: { type: Number, required: true },
+    metrics: { type: GleanStrategyMetricsSchema, required: true },
+    tradeoffs: { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
+const GleanStrategyAllocationSchema = new Schema<IGleanStrategyAllocation>(
+  {
+    lineItemIndex: { type: Number, required: true },
+    lineItemName: { type: String, required: true },
+    supplier: {
+      type: new Schema(
+        {
+          listingId: { type: String, required: true },
+          supplierId: { type: String, required: true },
+          supplierName: { type: String, required: true },
+          item: { type: String, required: true },
+          title: { type: String, required: true },
+          pricePerUnit: { type: Number, required: true },
+          imageId: { type: String, required: false },
+        },
+        { _id: false }
+      ),
+      required: true,
+    },
+    allocatedQty: { type: Number, required: true },
+    unit: { type: String, required: true },
+    subtotal: { type: Number, required: true },
+    matchType: { type: String, required: true },
+    matchScore: { type: Number, required: true },
+    deliveryWindow: {
+      type: new Schema(
+        {
+          startAt: { type: String, required: true },
+          endAt: { type: String, required: true },
+        },
+        { _id: false }
+      ),
+      required: false,
+    },
+  },
+  { _id: false }
+);
+
+const GleanSourcingPlanSchema = new Schema<IGleanSourcingPlan>(
+  {
+    orderId: { type: String, required: true },
+    strategies: {
+      type: [
+        new Schema(
+          {
+            id: { type: String, required: true },
+            name: { type: String, required: true },
+            allocations: { type: [GleanStrategyAllocationSchema], default: [] },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
+    unfulfillable: {
+      type: [
+        new Schema(
+          {
+            lineItemName: { type: String, required: true },
+            qtyNeeded: { type: Number, required: true },
+            qtyAvailable: { type: Number, required: true },
+            reason: { type: String, required: true },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
+    summary: { type: String, required: true },
+    reasoning: { type: String, required: true },
+  },
+  { _id: false }
+);
+
 const GleanChatMessageSchema = new Schema<IGleanChatMessage>(
   {
     role: { type: String, required: true, enum: ["user", "assistant"] },
     type: {
       type: String,
       required: true,
-      enum: ["text", "product_grid", "inventory_form"],
+      enum: ["text", "product_grid", "inventory_form", "strategy_options"],
     },
     content: { type: String, required: false },
     items: {
@@ -90,6 +244,17 @@ const GleanChatMessageSchema = new Schema<IGleanChatMessage>(
     },
     draft: {
       type: GleanInventoryDraftSchema,
+      required: false,
+      default: undefined,
+    },
+    options: {
+      type: [GleanStrategyOptionSchema],
+      required: false,
+      default: undefined,
+    },
+    recommendedStrategyId: { type: String, required: false, default: undefined },
+    sourcingPlan: {
+      type: GleanSourcingPlanSchema,
       required: false,
       default: undefined,
     },

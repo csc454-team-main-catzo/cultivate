@@ -10,6 +10,7 @@ import { runGleanAgent, type InventoryConstraints } from "../services/gleanAgent
 import Listing from "../models/Listing.js";
 import { getProduceMatchTerms } from "../services/produceMatcher.js";
 import CFG from "../config.js";
+import { runDailyPriceUpdate } from "../services/dailyPriceUpdater.js";
 
 const glean = new Hono<AuthenticatedContext>();
 
@@ -59,9 +60,72 @@ const UpdateChatBody = v.object({
   title: v.optional(v.string()),
 });
 
+const StrategyMetricsSchema = v.object({
+  totalCost: v.number(),
+  supplierCount: v.number(),
+  coveragePercent: v.number(),
+  avgMatchScore: v.number(),
+  estimatedDelivery: v.optional(v.string()),
+});
+
+const StrategyOptionSchema = v.object({
+  strategyId: v.string(),
+  name: v.string(),
+  description: v.string(),
+  rank: v.number(),
+  metrics: StrategyMetricsSchema,
+  tradeoffs: v.array(v.string()),
+});
+
+const DeliveryWindowSchema = v.object({
+  startAt: v.string(),
+  endAt: v.string(),
+});
+
+const StrategyAllocationSchema = v.object({
+  lineItemIndex: v.number(),
+  lineItemName: v.string(),
+  supplier: v.object({
+    listingId: v.string(),
+    supplierId: v.string(),
+    supplierName: v.string(),
+    item: v.string(),
+    title: v.string(),
+    pricePerUnit: v.number(),
+    imageId: v.optional(v.string()),
+  }),
+  allocatedQty: v.number(),
+  unit: v.string(),
+  subtotal: v.number(),
+  matchType: v.string(),
+  matchScore: v.number(),
+  deliveryWindow: v.optional(DeliveryWindowSchema),
+});
+
+const SourcingPlanSchema = v.object({
+  orderId: v.string(),
+  strategies: v.array(
+    v.object({
+      id: v.string(),
+      name: v.string(),
+      allocations: v.array(StrategyAllocationSchema),
+    })
+  ),
+  unfulfillable: v.array(
+    v.object({
+      lineItemName: v.string(),
+      qtyNeeded: v.number(),
+      qtyAvailable: v.number(),
+      reason: v.string(),
+    })
+  ),
+  summary: v.string(),
+  reasoning: v.string(),
+});
+
 const AppendMessageBody = v.object({
   role: v.picklist(["user", "assistant"]),
-  type: v.picklist(["text", "product_grid", "inventory_form"]),
+  type: v.picklist(["text", "product_grid", "inventory_form", "strategy_options"]),
   content: v.optional(v.string()),
   items: v.optional(
     v.array(
@@ -88,14 +152,12 @@ const AppendMessageBody = v.object({
       pricePerKg: v.number(),
       unit: v.optional(v.picklist(["kg", "lb", "count", "bunch"])),
       imageId: v.optional(v.string()),
-      deliveryWindow: v.optional(
-        v.object({
-          startAt: v.string(),
-          endAt: v.string(),
-        })
-      ),
+      deliveryWindow: v.optional(DeliveryWindowSchema),
     })
   ),
+  options: v.optional(v.array(StrategyOptionSchema)),
+  recommendedStrategyId: v.optional(v.nullable(v.string())),
+  sourcingPlan: v.optional(SourcingPlanSchema),
 });
 
 const CartBody = v.object({
@@ -342,6 +404,9 @@ glean.post(
       content: body.content,
       items: body.items,
       draft: body.draft,
+      options: body.options,
+      recommendedStrategyId: body.recommendedStrategyId,
+      sourcingPlan: body.sourcingPlan,
       createdAt: new Date(),
     } as any);
 
@@ -549,5 +614,29 @@ glean.post(
   }
 );
 
-export default glean;
+/** POST /prices/refresh — Manually trigger a daily wholesale price update from AAFC Infohort. */
+glean.post(
+  "/prices/refresh",
+  describeRoute({
+    operationId: "refreshWholesalePrices",
+    summary:
+      "Trigger a manual refresh of Toronto wholesale produce prices from AAFC Infohort and adjust open listing prices",
+    security: [{ bearerAuth: [] }],
+    responses: {
+      200: { description: "Price update result" },
+      401: { description: "Unauthorized" },
+    },
+  }),
+  authMiddleware(),
+  async (c) => {
+    try {
+      const result = await runDailyPriceUpdate();
+      return c.json(result, 200);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      return c.json({ error: message }, 500);
+    }
+  }
+);
 
+export default glean;

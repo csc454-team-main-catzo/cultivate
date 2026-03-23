@@ -251,20 +251,20 @@ async function fetchListingMatches(
 
 const FARMER_EXTRACT_FROM_TEXT_SYSTEM = `You are a Glean assistant. The user is creating a listing and we already have title, item, and description from their uploaded image. From their message extract ONLY: price per kg (number), weight/quantity in kg (number), unit (kg/lb/count/bunch), and if they mention when they are available for delivery or pickup, output a delivery window as two ISO 8601 date-time strings (startAt, endAt). Use the next occurrence of the mentioned day/time if relative (e.g. "Friday 9am-5pm" = this or next Friday; "delivered from 10 to 12:00 p.m. on Sunday" = next Sunday 10:00 and 12:00 in local time). Always include deliveryWindow with valid startAt and endAt whenever the user mentions a time window (e.g. "10 to 12", "10-12", "from X to Y on Sunday"). Reply with exactly one JSON object (no markdown): { "pricePerKg": number or null, "weightKg": number or null, "unit": "kg"|"lb"|"count"|"bunch" or null, "deliveryWindow": { "startAt": "ISO8601", "endAt": "ISO8601" } or null }. Omit deliveryWindow only if no time/delivery window is mentioned.`;
 
-const FARMER_SYSTEM = `You are a Glean assistant helping farmers list their produce. From the user's message, extract a draft listing. Respond with exactly one JSON object (no markdown, no code block) with this shape:
+const FARMER_SYSTEM = `You are a Glean assistant helping farmers list their produce. Prices are based on daily Toronto wholesale market data from Agriculture and Agri-Food Canada (AAFC Infohort). From the user's message, extract a draft listing. Respond with exactly one JSON object (no markdown, no code block) with this shape:
 {
-  "introText": "One short sentence to show the user (e.g. 'Here's your draft. Confirm weight and price, then tap Post to list it.')",
+  "introText": "One short sentence to show the user (e.g. 'Here's your draft based on today's Toronto wholesale prices. Confirm weight and price, then tap Post to list it.')",
   "draft": {
     "title": "Short listing title (e.g. 'Fresh tomatoes — 20kg')",
     "item": "Produce type in singular (e.g. tomato, carrot)",
     "description": "Optional 1-2 sentence description or empty string",
     "weightKg": number (numeric only, e.g. 20),
-    "pricePerKg": number (e.g. 2.5),
+    "pricePerKg": number (e.g. 3.5),
     "unit": "kg" or "lb" or "count" or "bunch",
     "deliveryWindow": { "startAt": "ISO 8601 date-time", "endAt": "ISO 8601 date-time" } or null — whenever the user mentions a delivery or availability time (e.g. "delivered from 10 to 12:00 p.m. on Sunday" or "Sunday 10 to 12 PM" → next Sunday 10:00 and 12:00 in local time as ISO strings; "10-12 on Friday" → next Friday 10:00 and 12:00)
   }
 }
-If the user did not specify weight or price, use sensible defaults (e.g. weightKg 20, pricePerKg 2.5). Always set deliveryWindow with valid startAt and endAt ISO strings when the user mentions any time range for delivery or availability; omit only if no time is mentioned.`;
+If the user did not specify weight or price, use sensible defaults (e.g. weightKg 20, pricePerKg 3.5). Always set deliveryWindow with valid startAt and endAt ISO strings when the user mentions any time range for delivery or availability; omit only if no time is mentioned.`;
 
 const RESTAURANT_INTRO_SYSTEM = `You are a Glean assistant. A restaurant asked for produce and we found matching listings. Generate exactly one short, friendly intro sentence that mentions the number of matches. Vary your wording — use different phrasings, don't always end with the same line.
 
@@ -287,13 +287,13 @@ function fallbackDraftFromPrompt(prompt: string): { introText: string; draft: Dr
   const item = itemMatch ? (itemMatch[1] === "ugly" ? "carrots" : itemMatch[1]) : "produce";
   const itemSingular = item.replace(/s$/, "");
   return {
-    introText: "Here's your draft. Confirm weight and price, then tap Post to list it.",
+    introText: "Here's your draft based on Toronto wholesale market prices. Confirm weight and price, then tap Post to list it.",
     draft: {
       title: `Fresh ${item} — ${weight}${unit}`,
       item: itemSingular,
       description: prompt.slice(0, 200) || undefined,
       weightKg: unit === "lb" ? weight * 0.453592 : weight,
-      pricePerKg: 2.5,
+      pricePerKg: 3.5,
       unit: unit === "lb" ? "lb" : "kg",
     },
   };
@@ -453,7 +453,7 @@ export async function runGleanAgent(req: GleanAgentRequest): Promise<GleanAgentR
             deliveryWindow,
           };
           return {
-            introText: "Here's your draft from the photo and your message. Confirm weight and price, then tap Post to list it.",
+            introText: "Here's your draft from the photo and your message. Price is based on today's Toronto wholesale market data. Confirm weight and price, then tap Post.",
             payload: { type: "inventory_form", draft, userMessage: trimmed },
           };
         }
@@ -466,12 +466,12 @@ export async function runGleanAgent(req: GleanAgentRequest): Promise<GleanAgentR
         item: imageFields.item,
         description: imageFields.description,
         weightKg: 20,
-        pricePerKg: imageFields.suggestedPricePerKg ?? 2.5,
+        pricePerKg: imageFields.suggestedPricePerKg ?? 3.5,
         unit: (imageFields.suggestedUnit as "kg" | "lb" | "count" | "bunch") ?? "kg",
         imageId: req.imageId,
       };
       return {
-        introText: "Here's your draft from the photo. Fill in weight, price, and delivery window above, then tap Post to list it.",
+        introText: "Here's your draft from the photo. Price is based on Toronto wholesale data. Fill in weight and delivery window, then tap Post.",
         payload: { type: "inventory_form", draft, userMessage: trimmed },
       };
     }
@@ -481,12 +481,12 @@ export async function runGleanAgent(req: GleanAgentRequest): Promise<GleanAgentR
         item: imageFields.item,
         description: imageFields.description,
         weightKg: 20,
-        pricePerKg: imageFields.suggestedPricePerKg ?? 2.5,
+        pricePerKg: imageFields.suggestedPricePerKg ?? 3.5,
         unit: (imageFields.suggestedUnit as "kg" | "lb" | "count" | "bunch") ?? "kg",
         imageId: req.imageId,
       };
       return {
-        introText: "Here's your draft from the photo. Fill in weight, price, and delivery window above, then tap Post to list it.",
+        introText: "Here's your draft from the photo. Price is based on Toronto wholesale data. Fill in weight and delivery window, then tap Post.",
         payload: { type: "inventory_form", draft, userMessage: trimmed },
       };
     }

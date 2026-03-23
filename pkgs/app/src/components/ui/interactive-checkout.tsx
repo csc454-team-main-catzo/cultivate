@@ -49,6 +49,19 @@ const UNIT_LABELS: Record<ProductUnit, string> = {
   bunch: "bunch",
 };
 
+/** Round to 2 decimal places (for quantities and display). */
+function roundQty(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** Format a quantity for labels and inputs (2 decimals for weight; whole numbers for count/bunch). */
+function formatQtyDisplay(n: number, unit: ProductUnit): string {
+  if (unit === "count" || unit === "bunch") {
+    return String(Math.round(n));
+  }
+  return roundQty(n).toFixed(2);
+}
+
 /* ------------------------------------------------------------------ */
 /*  Product / Cart types                                              */
 /* ------------------------------------------------------------------ */
@@ -73,6 +86,10 @@ export interface Product {
   requestedUnit?: ProductUnit;
   /** Optional delivery/availability window for listing. */
   deliveryWindow?: { startAt: string; endAt: string };
+  /** "exact" | "substitute" etc. — shown as a badge when present. */
+  matchType?: string;
+  /** 0–1 score — displayed alongside matchType badge. */
+  matchScore?: number;
 }
 
 export interface CartItem extends Product {
@@ -199,16 +216,16 @@ function InteractiveCheckout({
     for (const p of products) {
       if (p.requestedQty != null && p.requestedQty > 0) {
         let qty = p.requestedQty;
+        const listingUnit = p.unit ?? "kg";
+        const reqUnit = p.requestedUnit ?? listingUnit;
         if (p.availableQty != null) {
-          const listingUnit = p.unit ?? "kg";
-          const reqUnit = p.requestedUnit ?? listingUnit;
           const availInReqUnit =
             isWeightUnit(listingUnit) && isWeightUnit(reqUnit) && reqUnit !== listingUnit
               ? convertWeight(p.availableQty, listingUnit, reqUnit)
               : p.availableQty;
-          qty = Math.min(qty, Math.round(availInReqUnit * 100) / 100);
+          qty = Math.min(qty, roundQty(availInReqUnit));
         }
-        init[p.id] = String(qty);
+        init[p.id] = formatQtyDisplay(qty, reqUnit);
       }
     }
     return init;
@@ -255,9 +272,9 @@ function InteractiveCheckout({
       const listingUnit = product.unit ?? "kg";
       const leftNative = product.availableQty - inCartNative(product.id);
       if (isWeightUnit(listingUnit) && isWeightUnit(displayUnit) && displayUnit !== listingUnit) {
-        return Math.round(convertWeight(leftNative, listingUnit, displayUnit) * 100) / 100;
+        return roundQty(convertWeight(leftNative, listingUnit, displayUnit));
       }
-      return Math.round(leftNative * 100) / 100;
+      return roundQty(leftNative);
     },
     [inCartNative],
   );
@@ -299,7 +316,7 @@ function InteractiveCheckout({
     if (isWeightUnit(inputUnit) && isWeightUnit(listingUnit) && inputUnit !== listingUnit) {
       nativeQty = convertWeight(inputQty, inputUnit, listingUnit);
     }
-    nativeQty = Math.round(nativeQty * 100) / 100;
+    nativeQty = roundQty(nativeQty);
 
     setCart((currentCart) => {
       const existing = currentCart.find((item) => item.id === product.id);
@@ -314,7 +331,7 @@ function InteractiveCheckout({
       if (existing) {
         return currentCart.map((item) =>
           item.id === product.id
-            ? { ...item, quantity: Math.round((item.quantity + nativeQty) * 100) / 100 }
+            ? { ...item, quantity: roundQty(item.quantity + nativeQty) }
             : item,
         );
       }
@@ -338,7 +355,7 @@ function InteractiveCheckout({
           if (product?.availableQty != null) {
             newQuantity = Math.min(newQuantity, product.availableQty);
           }
-          return { ...item, quantity: Math.round(newQuantity * 100) / 100 };
+          return { ...item, quantity: roundQty(newQuantity) };
         }
         return item;
       }),
@@ -346,7 +363,7 @@ function InteractiveCheckout({
   };
 
   const totalPrice = useMemo(
-    () => Math.round(cart.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100) / 100,
+    () => roundQty(cart.reduce((sum, item) => sum + item.price * item.quantity, 0)),
     [cart]
   );
 
@@ -409,6 +426,20 @@ function InteractiveCheckout({
                           <span className="px-2 py-0.5 text-xs rounded-full bg-zinc-100 text-zinc-500 shrink-0">
                             {product.category}
                           </span>
+                          {product.matchType && (
+                            <span
+                              className={cn(
+                                "px-2 py-0.5 text-xs rounded-full shrink-0 font-medium",
+                                product.matchType.toLowerCase() === "exact"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-amber-100 text-amber-700",
+                              )}
+                            >
+                              {product.matchType.toLowerCase() === "exact"
+                                ? "Exact match"
+                                : `Substitute · ${Math.round((product.matchScore ?? 0) * 100)}%`}
+                            </span>
+                          )}
                         </div>
                         <div className="flex flex-col gap-0.5 text-sm text-zinc-500">
                           <ProductPriceLine product={product} selectedUnit={getSelectedUnit(product)} />
@@ -453,7 +484,7 @@ function InteractiveCheckout({
                         <input
                           type="number"
                           min={0.01}
-                          step={isWeightUnit(selUnit) ? 0.1 : 1}
+                          step={isWeightUnit(selUnit) ? 0.01 : 1}
                           max={remaining ?? undefined}
                           value={getQtyStr(product.id)}
                           disabled={soldOut}
@@ -461,7 +492,7 @@ function InteractiveCheckout({
                           onKeyDown={(e) => {
                             if (e.key === "Enter" && !cannotAdd) {
                               addToCart(product, inputQty, selUnit);
-                              setQtyStr(product.id, "1");
+                              setQtyStr(product.id, formatQtyDisplay(1, selUnit));
                             }
                           }}
                           className={cn(
@@ -486,7 +517,7 @@ function InteractiveCheckout({
                           disabled={cannotAdd}
                           onClick={() => {
                             addToCart(product, inputQty, selUnit);
-                            setQtyStr(product.id, "1");
+                            setQtyStr(product.id, formatQtyDisplay(1, selUnit));
                           }}
                           className="gap-1.5"
                         >
@@ -502,8 +533,8 @@ function InteractiveCheckout({
                           {soldOut
                             ? "All in cart"
                             : exceeds
-                              ? `Exceeds available (${remaining} ${UNIT_LABELS[selUnit]})`
-                              : `${remaining} ${UNIT_LABELS[selUnit]} available`}
+                              ? `Exceeds available (${formatQtyDisplay(remaining, selUnit)} ${UNIT_LABELS[selUnit]})`
+                              : `${formatQtyDisplay(remaining, selUnit)} ${UNIT_LABELS[selUnit]} available`}
                         </span>
                       )}
                     </div>
@@ -587,7 +618,8 @@ function InteractiveCheckout({
                           layout
                           className="text-xs text-zinc-600 min-w-[2rem] text-center"
                         >
-                          {item.quantity}{" "}{UNIT_LABELS[item.unit ?? "kg"]}
+                          {formatQtyDisplay(item.quantity, item.unit ?? "kg")}{" "}
+                          {UNIT_LABELS[item.unit ?? "kg"]}
                         </motion.span>
                         <motion.button
                           whileHover={{ scale: 1.1 }}

@@ -13,6 +13,9 @@ import type {
   ProductGridItem,
   TextMessage,
   UserRole,
+  StrategyOptionsMessage,
+  StrategyOptionItem,
+  SourcingPlanData,
 } from "../types";
 
 const STREAM_CHUNK_MS = 35;
@@ -56,7 +59,7 @@ function fallbackAgentResponse(userText: string, role: UserRole): AgentResponseP
         item: item.replace(/s$/, ""),
         description: userText.slice(0, 200),
         weightKg: unit === "lb" ? weight * 0.453592 : weight,
-        pricePerKg: 2.5,
+        pricePerKg: 3.5,
         unit: unit === "lb" ? "lb" : "kg",
       },
       userMessage: userText,
@@ -106,6 +109,17 @@ export interface UseAgentOptions {
   chatId: string | null;
 }
 
+export type PersistMessagePayload = {
+  role: "user" | "assistant";
+  type: "text" | "product_grid" | "inventory_form" | "strategy_options";
+  content?: string;
+  items?: ProductGridItem[];
+  draft?: InventoryDraftData;
+  options?: StrategyOptionItem[];
+  recommendedStrategyId?: string | null;
+  sourcingPlan?: SourcingPlanData;
+};
+
 export interface UseAgentReturn {
   messages: AgentMessage[];
   isThinking: boolean;
@@ -114,6 +128,7 @@ export interface UseAgentReturn {
   cancelThinking?: () => void;
   pushMessages: (...msgs: AgentMessage[]) => void;
   setThinking: (v: boolean) => void;
+  persistMessage: (payload: PersistMessagePayload) => Promise<void>;
 }
 
 export function useAgent(options: UseAgentOptions): UseAgentReturn {
@@ -154,27 +169,47 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
             const base = {
               id: String(m._id ?? generateId()),
               role: m.role as "user" | "assistant",
-              type: m.type as "text" | "product_grid" | "inventory_form",
               createdAt: m.createdAt ? new Date(m.createdAt) : new Date(),
             };
-            if (base.type === "text") {
+            if (m.type === "text") {
               return {
                 ...base,
+                type: "text",
                 content: String(m.content ?? ""),
                 isStreaming: false,
               } as TextMessage;
             }
-            if (base.type === "product_grid") {
+            if (m.type === "product_grid") {
               return {
                 ...base,
+                type: "product_grid",
                 query: "",
                 items: Array.isArray(m.items) ? (m.items as ProductGridItem[]) : [],
-              } as AgentMessage;
+              } as ProductGridMessage;
             }
-            return {
-              ...base,
-              draft: m.draft as InventoryDraftData,
-            } as AgentMessage;
+            if (m.type === "strategy_options") {
+              return {
+                ...base,
+                type: "strategy_options",
+                options: Array.isArray(m.options) ? m.options : [],
+                recommendedStrategyId: m.recommendedStrategyId ?? null,
+                sourcingPlan: m.sourcingPlan ?? {
+                  orderId: "",
+                  strategies: [],
+                  unfulfillable: [],
+                  summary: "",
+                  reasoning: "",
+                },
+              } as StrategyOptionsMessage;
+            }
+            if (m.type === "inventory_form") {
+              return {
+                ...base,
+                type: "inventory_form",
+                draft: m.draft as InventoryDraftData,
+              } as InventoryFormMessage;
+            }
+            return null;
           })
           .filter(Boolean) as AgentMessage[];
         if (!isCancelled) setMessages(mapped);
@@ -190,13 +225,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
   }, [chatId, getAuthHeaders, isAuthenticated]);
 
   const persistMessage = useCallback(
-    async (payload: {
-      role: "user" | "assistant";
-      type: "text" | "product_grid" | "inventory_form";
-      content?: string;
-      items?: ProductGridItem[];
-      draft?: InventoryDraftData;
-    }) => {
+    async (payload: PersistMessagePayload) => {
       if (!chatId || !isAuthenticated) return;
       try {
         const headers = await getAuthHeaders();
@@ -367,5 +396,6 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     cancelThinking,
     pushMessages,
     setThinking,
+    persistMessage,
   };
 }

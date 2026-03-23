@@ -37,12 +37,18 @@ export interface ProductGridItem {
   imageUrl?: string;
   /** When the listing is available for delivery/pickup (optional). */
   deliveryWindow?: { startAt: string; endAt: string };
+  /** "exact" | "substitute" etc. from the sourcing optimizer allocation. */
+  matchType?: string;
+  /** 0–1 score indicating how well this product matches the requested item. */
+  matchScore?: number;
 }
 
 export interface ProductGridMessage extends AgentMessageBase {
   type: "product_grid";
   query: string;
   items: ProductGridItem[];
+  /** Passed from the sourcing plan so the product grid can show a warning banner. */
+  unfulfillable?: SourcingPlanData["unfulfillable"];
 }
 
 export interface InventoryDraftData {
