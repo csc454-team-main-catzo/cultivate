@@ -6,7 +6,8 @@
     "build": "tsc",
     "start": "node --env-file=.env dist/index.js",
     "seed:produce": "tsx --env-file=.env scripts/seed_produce_items.ts",
-    "smoke:draft-from-image": "tsx --env-file=.env scripts/smoke_draft_from_image.ts"
+    "smoke:draft-from-image": "tsx --env-file=.env scripts/smoke_draft_from_image.ts",
+    "test:optimizer": "tsx scripts/test_sourcing_optimizer.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.9",
