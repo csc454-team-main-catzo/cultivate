@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/multimodal-ai-chat-input";
 import { useAuth0 } from "@auth0/auth0-react";
 import CFG from "@/config";
-import { useListingActions } from "@/hooks/useListingActions";
+import { useListingActions, type ParsedSheetLineItem } from "@/hooks/useListingActions";
 import { InteractiveCheckout, type CartItem, type Product as CheckoutProduct, type ProductUnit } from "@/components/ui/interactive-checkout";
 import { CheckoutForm } from "@/components/ui/checkout-form";
 import { OrderConfirmationCard } from "@/components/ui/order-confirmation-card";
@@ -78,6 +78,42 @@ function matchRequestedAmount(
   );
 }
 
+/** Fix common typos like "2kg or cucumbers" → "2kg of cucumbers" before parsing. */
+function normalizeOrderTextForParsing(input: string): string {
+  return input.replace(
+    /\b(\d+(?:\.\d+)?\s*(?:kg|kgs|lb|lbs|pound|pounds|count|ct|bunch))\s+or\s+/gi,
+    "$1 of ",
+  );
+}
+
+/**
+ * Turn a natural-language restaurant order into optimizer line items
+ * (same shape as CSV parsing). Uses the same qty/unit patterns as product-grid matching.
+ */
+function textOrderToLineItems(input: string): ParsedSheetLineItem[] {
+  const normalized = normalizeOrderTextForParsing(input);
+  const amounts = parseRequestedAmounts(normalized);
+  const out: ParsedSheetLineItem[] = [];
+  const seen = new Set<string>();
+  for (const a of amounts) {
+    const name = a.keyword
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/[.,;:!?]+$/g, "");
+    if (name.length < 2) continue;
+    const dedupeKey = `${name.toLowerCase()}:${a.unit}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    const titled = name.charAt(0).toUpperCase() + name.slice(1);
+    out.push({
+      item: titled,
+      qtyNeeded: a.qty,
+      unit: a.unit,
+    });
+  }
+  return out;
+}
+
 /* ------------------------------------------------------------------ */
 
 interface ChatInterfaceProps {
@@ -121,6 +157,94 @@ export function ChatInterface({
   const AgentIcon = role === "farmer" ? Tractor : ChefHat;
 
   const generateMsgId = () => `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+  /** Shared by CSV upload and natural-language restaurant orders. */
+  const runSourcingOptimizationFromLineItems = useCallback(
+    async (lineItems: ParsedSheetLineItem[]) => {
+      try {
+        const plan = await runOptimizer(lineItems);
+        const planData = plan as unknown as {
+          strategyOptions?: StrategyOptionItem[];
+          recommendedStrategyId?: string | null;
+          strategies?: Array<{ id: string; name: string; allocations: StrategyAllocation[] }>;
+          unfulfillable?: Array<{
+            lineItemName: string;
+            qtyNeeded: number;
+            qtyAvailable: number;
+            reason: string;
+          }>;
+          summary?: string;
+          reasoning?: string;
+          orderId?: string;
+        };
+
+        const options = planData.strategyOptions ?? [];
+        if (options.length === 0) {
+          const headline = planData.summary || "No fulfillment strategies could be generated.";
+          const tips = [
+            "Check that suppliers have listed items matching your order",
+            "Try broadening your order with more common produce names",
+            "Rephrase your order (e.g. 2 kg of tomatoes and 1 lb of greens) or upload a CSV",
+          ];
+          const noStratContent = `${headline}\n\nThis usually means there aren't enough supply listings to match your order. Here are some things to try:\n\n${tips.map((t) => `• ${t}`).join("\n")}`;
+          pushMessages({
+            id: generateMsgId(),
+            role: "assistant",
+            type: "text",
+            content: noStratContent,
+            createdAt: new Date(),
+          });
+          void persistMessage({ role: "assistant", type: "text", content: noStratContent });
+          return;
+        }
+
+        const sourcingPlan: SourcingPlanData = {
+          orderId: planData.orderId ?? "",
+          strategies: (planData.strategies ?? []).map((s) => ({
+            id: s.id,
+            name: s.name,
+            allocations: s.allocations,
+          })),
+          unfulfillable: planData.unfulfillable ?? [],
+          summary: planData.summary ?? "",
+          reasoning: planData.reasoning ?? "",
+        };
+
+        const strategyMsg: StrategyOptionsMessage = {
+          id: generateMsgId(),
+          role: "assistant",
+          type: "strategy_options",
+          createdAt: new Date(),
+          options,
+          recommendedStrategyId: planData.recommendedStrategyId ?? null,
+          sourcingPlan: sourcingPlan,
+        };
+
+        pushMessages(strategyMsg);
+        void persistMessage({
+          role: "assistant",
+          type: "strategy_options",
+          options,
+          recommendedStrategyId: planData.recommendedStrategyId ?? null,
+          sourcingPlan,
+        });
+      } catch (err) {
+        console.error("Optimization failed:", err);
+        const failContent = `Optimization failed: ${err instanceof Error ? err.message : "Unknown error"}. You can try again or describe your order in text.`;
+        pushMessages({
+          id: generateMsgId(),
+          role: "assistant",
+          type: "text",
+          content: failContent,
+          createdAt: new Date(),
+        });
+        void persistMessage({ role: "assistant", type: "text", content: failContent });
+      } finally {
+        setThinking(false);
+      }
+    },
+    [runOptimizer, pushMessages, persistMessage, setThinking],
+  );
 
   const handleMockPlaceOrder = useCallback(() => {
     const snapshot = [...cart];
@@ -217,71 +341,10 @@ export function ChatInterface({
             return;
           }
 
-          const plan = await runOptimizer(parsed.lineItems);
-          const planData = plan as unknown as {
-            strategyOptions?: StrategyOptionItem[];
-            recommendedStrategyId?: string | null;
-            strategies?: Array<{ id: string; name: string; allocations: StrategyAllocation[] }>;
-            unfulfillable?: Array<{ lineItemName: string; qtyNeeded: number; qtyAvailable: number; reason: string }>;
-            summary?: string;
-            reasoning?: string;
-            orderId?: string;
-          };
-
-          const options = planData.strategyOptions ?? [];
-          if (options.length === 0) {
-            const headline = planData.summary || "No fulfillment strategies could be generated.";
-            const tips = [
-              "Check that suppliers have listed items matching your order",
-              "Try broadening your order with more common produce names",
-              "Upload a different CSV with adjusted quantities",
-            ];
-            const noStratContent = `${headline}\n\nThis usually means there aren't enough supply listings to match your order. Here are some things to try:\n\n${tips.map((t) => `• ${t}`).join("\n")}`;
-            pushMessages({
-              id: generateMsgId(),
-              role: "assistant",
-              type: "text",
-              content: noStratContent,
-              createdAt: new Date(),
-            });
-            void persistMessage({ role: "assistant", type: "text", content: noStratContent });
-            setThinking(false);
-            return;
-          }
-
-          const sourcingPlan: SourcingPlanData = {
-            orderId: planData.orderId ?? "",
-            strategies: (planData.strategies ?? []).map((s) => ({
-              id: s.id,
-              name: s.name,
-              allocations: s.allocations,
-            })),
-            unfulfillable: planData.unfulfillable ?? [],
-            summary: planData.summary ?? "",
-            reasoning: planData.reasoning ?? "",
-          };
-
-          const strategyMsg: StrategyOptionsMessage = {
-            id: generateMsgId(),
-            role: "assistant",
-            type: "strategy_options",
-            createdAt: new Date(),
-            options,
-            recommendedStrategyId: planData.recommendedStrategyId ?? null,
-            sourcingPlan: sourcingPlan,
-          };
-
-          pushMessages(strategyMsg);
-          void persistMessage({
-            role: "assistant",
-            type: "strategy_options",
-            options,
-            recommendedStrategyId: planData.recommendedStrategyId ?? null,
-            sourcingPlan,
-          });
+          await runSourcingOptimizationFromLineItems(parsed.lineItems);
         } catch (err) {
-          console.error("Optimization failed:", err);
-          const failContent = `Optimization failed: ${err instanceof Error ? err.message : "Unknown error"}. You can try again or describe your order in text.`;
+          console.error("CSV sourcing failed:", err);
+          const failContent = `Could not process the sheet: ${err instanceof Error ? err.message : "Unknown error"}.`;
           pushMessages({
             id: generateMsgId(),
             role: "assistant",
@@ -290,10 +353,28 @@ export function ChatInterface({
             createdAt: new Date(),
           });
           void persistMessage({ role: "assistant", type: "text", content: failContent });
-        } finally {
           setThinking(false);
         }
         return;
+      }
+
+      /* Natural-language order → same optimization path as CSV (restaurant). */
+      if (role === "restaurant" && trimmed && !sheetAttachment) {
+        const lineItems = textOrderToLineItems(trimmed);
+        if (lineItems.length > 0) {
+          const userMsg: AgentMessage = {
+            id: generateMsgId(),
+            role: "user",
+            type: "text",
+            content: trimmed,
+            createdAt: new Date(),
+          };
+          pushMessages(userMsg);
+          void persistMessage({ role: "user", type: "text", content: trimmed });
+          setThinking(true);
+          await runSourcingOptimizationFromLineItems(lineItems);
+          return;
+        }
       }
 
       let imageId: string | undefined;
@@ -312,7 +393,18 @@ export function ChatInterface({
       const textToSend = trimmed || (imageId ? "Create listing from this photo" : "");
       if (textToSend || imageId) sendMessage(textToSend, imageId ? { imageId } : undefined);
     },
-    [chatId, sendMessage, onClearPostError, uploadImage, parseSourcingSheet, runOptimizer, role, pushMessages, setThinking, persistMessage]
+    [
+      chatId,
+      sendMessage,
+      onClearPostError,
+      uploadImage,
+      parseSourcingSheet,
+      role,
+      pushMessages,
+      setThinking,
+      persistMessage,
+      runSourcingOptimizationFromLineItems,
+    ]
   );
 
   const handleSelectStrategy = useCallback(
@@ -486,7 +578,7 @@ export function ChatInterface({
                   <p className="text-sm text-zinc-500 max-w-[280px]">
                     {role === "farmer"
                       ? "Try: “Just harvested 50kg of ugly carrots.”"
-                      : "Try: “Need 20kg carrots by Friday.”"}
+                      : "Try: “2 kg of tomatoes and 3 lb of greens” or attach a CSV for sourcing strategies."}
                   </p>
                 </div>
               )}
@@ -553,7 +645,7 @@ export function ChatInterface({
           placeholder={
             role === "farmer"
               ? "Describe what you've harvested..."
-              : "Describe what you need..."
+              : "Type an order (e.g. 2 kg cucumbers and 2 kg tomatoes) or attach a CSV…"
           }
           draftKey={chatId ? `glean:draft:${chatId}` : undefined}
         />
