@@ -6,6 +6,7 @@ import { getAgentTheme } from "../lib/theme";
 import type {
   AgentMessage,
   InventoryDraftData,
+  InventoryFormMessage,
   ListingPostSuccessInfo,
   UserRole,
   StrategyOptionsMessage,
@@ -151,6 +152,23 @@ function buildListingPostedMessage(info: ListingPostSuccessInfo): string {
 function listingIdFromPostedMessageContent(content: string): string | null {
   const m = content.match(/Listing ID:\s*([a-f\d]{24})\b/i);
   return m?.[1] ?? null;
+}
+
+/**
+ * Stable key for list rows so inventory draft forms are not remounted when the
+ * message document id changes (client temp id → Mongo _id). `draft.formInstanceId`
+ * is persisted with the message so the key stays stable across sync/reload.
+ */
+function gleanMessageBubbleKey(msg: AgentMessage): string {
+  if (msg.type === "inventory_form") {
+    const d = msg.draft;
+    return `inventory_form:${d.formInstanceId ?? msg.id}`;
+  }
+  return msg.id;
+}
+
+function inventoryDraftStableId(msg: InventoryFormMessage): string {
+  return msg.draft.formInstanceId ?? msg.id;
 }
 
 interface ChatInterfaceProps {
@@ -652,7 +670,7 @@ export function ChatInterface({
 
               {messages.map((msg) => (
                 <MessageBubble
-                  key={msg.id}
+                  key={gleanMessageBubbleKey(msg)}
                   message={msg}
                   chatId={chatId}
                   theme={theme}
@@ -1113,7 +1131,7 @@ function MessageBubble({
         {message.type === "inventory_form" && (
           <InventoryDraftCard
             draft={message.draft}
-            draftMessageId={message.id}
+            draftMessageId={inventoryDraftStableId(message)}
             primaryButtonClass={theme.primaryButtonClass}
             onPost={(draft) => onPostInventory?.(draft)}
           />

@@ -26,6 +26,8 @@ export interface IGleanInventoryDraftData {
   unit?: "kg" | "lb" | "count" | "bunch";
   /** Listing photo from chat upload; must persist so Post includes the image after reload. */
   imageId?: string;
+  /** Stable client id for the draft form row; keeps UI state when message _id changes. */
+  formInstanceId?: string;
   deliveryWindow?: { startAt: string; endAt: string };
 }
 
@@ -133,6 +135,7 @@ const GleanInventoryDraftSchema = new Schema<IGleanInventoryDraftData>(
     pricePerKg: { type: Number, required: true },
     unit: { type: String, required: false },
     imageId: { type: String, required: false },
+    formInstanceId: { type: String, required: false },
     deliveryWindow: {
       type: new Schema(
         {

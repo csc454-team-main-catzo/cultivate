@@ -89,6 +89,7 @@ function fallbackAgentResponse(
         weightKg: imageId != null ? 20 : unit === "lb" ? weight * 0.453592 : weight,
         pricePerKg: 3.5,
         unit: imageId != null ? "kg" : unit === "lb" ? "lb" : "kg",
+        formInstanceId: generateId(),
         ...(imageId ? { imageId } : {}),
       },
       userMessage: userText,
@@ -364,6 +365,13 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
                 role: "assistant",
                 createdAt: new Date(),
               } as AgentMessage;
+              if (cardMsg.type === "inventory_form") {
+                const inv = cardMsg as InventoryFormMessage;
+                inv.draft = {
+                  ...inv.draft,
+                  formInstanceId: inv.draft.formInstanceId ?? generateId(),
+                };
+              }
               setMessages((prev) => [...prev, cardMsg]);
               if (cardMsg.type === "product_grid") {
                 void persistMessage({

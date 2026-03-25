@@ -148,6 +148,7 @@ const AppendMessageBody = v.object({
       pricePerKg: v.number(),
       unit: v.optional(v.picklist(["kg", "lb", "count", "bunch"])),
       imageId: v.optional(v.string()),
+      formInstanceId: v.optional(v.string()),
     })
   ),
   options: v.optional(v.array(StrategyOptionSchema)),

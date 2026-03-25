@@ -60,6 +60,12 @@ export interface InventoryDraftData {
   unit?: "kg" | "lb" | "count" | "bunch";
   /** When set, attach this image when posting (from chat upload). */
   imageId?: string;
+  /**
+   * Stable id for this draft card (set client-side, persisted on the message).
+   * Used as React key so the form does not remount (and reset price) when the
+   * chat message document id changes after sync/reload.
+   */
+  formInstanceId?: string;
 }
 
 /** Returned after posting a listing from a Glean draft; used to append the persisted green confirmation message. */
