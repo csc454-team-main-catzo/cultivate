@@ -30,7 +30,6 @@ interface ListingDetailData {
   qty: number;
   unit?: string;
   photos?: Array<{ imageId: string }>;
-  deliveryWindow?: { startAt: string; endAt: string };
   status: string;
   matchedResponseId: string | null;
   createdBy: { _id: string; name: string; email: string; role?: "farmer" | "restaurant" };
@@ -363,20 +362,6 @@ export default function ListingDetail() {
           <span>Qty: {listing.qty} {listing.unit ?? "kg"}</span>
           <span>${listing.price.toFixed(2)}/{listing.unit ?? "kg"}</span>
         </div>
-        {listing.deliveryWindow?.startAt && listing.deliveryWindow?.endAt && (
-          <p className="text-sm text-zinc-600 mt-2">
-            Delivery window:{" "}
-            {new Date(listing.deliveryWindow.startAt).toLocaleString(undefined, {
-              dateStyle: "short",
-              timeStyle: "short",
-            })}{" "}
-            –{" "}
-            {new Date(listing.deliveryWindow.endAt).toLocaleString(undefined, {
-              dateStyle: "short",
-              timeStyle: "short",
-            })}
-          </p>
-        )}
         <p className="text-xs text-zinc-400 mt-2">
           by {listing.createdBy?.name || "Unknown"}
         </p>

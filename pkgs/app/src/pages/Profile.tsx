@@ -41,6 +41,19 @@ export default function Profile() {
     }
   };
 
+  const handlePostalSave = async (postalCode: string) => {
+    try {
+      await users.updateCurrentUser({
+        updateUserRequest: { postalCode },
+      });
+      await refreshUser();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to save postal code";
+      alert(msg);
+      throw err;
+    }
+  };
+
   if (!user) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
@@ -54,9 +67,11 @@ export default function Profile() {
       name={user.name ?? "User"}
       email={user.email ?? ""}
       avatar={user.avatar ?? undefined}
+      postalCode={user.postalCode ?? null}
       onNameSave={handleNameSave}
       onEmailSave={handleEmailSave}
       onAvatarSave={handleAvatarSave}
+      onPostalSave={handlePostalSave}
     />
   );
 }

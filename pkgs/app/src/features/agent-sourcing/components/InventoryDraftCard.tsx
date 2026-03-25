@@ -87,8 +87,8 @@ export function InventoryDraftCard({
   }
 
   const hasPhoto = Boolean(draft.imageId);
-  const hasDeliveryWindow = Boolean(draft.deliveryWindow?.startAt && draft.deliveryWindow?.endAt);
-  const isImageOnlyPrompt = hasPhoto && !hasDeliveryWindow;
+  const isImageOnlyPrompt =
+    hasPhoto && (!titleTrimmed || !descTrimmed || weightNum <= 0 || priceNum <= 0);
 
   return (
     <motion.div

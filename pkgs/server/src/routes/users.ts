@@ -3,6 +3,7 @@ import { describeRoute, resolver, validator } from "hono-openapi";
 import CFG from "../config.js";
 import { authMiddleware } from "../middleware/auth.js";
 import type { AuthenticatedContext } from "../middleware/types.js";
+import Listing from "../models/Listing.js";
 import { User } from "../models/User.js";
 import {
   UserListResponseSchema,
@@ -12,6 +13,7 @@ import {
   UserUpdateSchema,
   type UserUpdateInput,
 } from "../schemas/user.js";
+import { geocodeCanadianPostal } from "../utils/geocodePostal.js";
 
 /** Fetch user profile from Auth0 when access token lacks email/name claims */
 async function fetchAuth0UserInfo(accessToken: string): Promise<{ email?: string; name?: string }> {
@@ -62,7 +64,7 @@ users.post(
       // WORKAROUND: hono-openapi's validator registers types differently than
       // Hono's native validator. The `as never` cast keeps TypeScript happy
       // while runtime validation comes from the middleware above.
-      const { role, email: bodyEmail, name: bodyName } = c.req.valid("json" as never) as UserRegisterInput;
+      const { role, email: bodyEmail, name: bodyName, postalCode } = c.req.valid("json" as never) as UserRegisterInput;
       const auth0Id = c.get("auth0Id");
       const token = c.get("token");
       const isNewUser = c.get("isNewUser");
@@ -99,11 +101,21 @@ users.post(
         );
       }
 
+      let latLng: [number, number];
+      try {
+        latLng = await geocodeCanadianPostal(postalCode);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Could not verify postal code";
+        return c.json({ error: msg }, 400);
+      }
+
       const user = await User.create({
         auth0Id,
         email,
         name: name || email.split("@")[0],
         role,
+        postalCode,
+        latLng,
       });
 
       return c.json(user, 201);
@@ -203,6 +215,24 @@ users.patch(
       if (body.name !== undefined) user.name = body.name;
       if (body.email !== undefined) user.email = body.email;
       if (body.avatar !== undefined) user.avatar = body.avatar ?? undefined;
+      if (body.postalCode !== undefined) {
+        try {
+          user.latLng = await geocodeCanadianPostal(body.postalCode);
+          user.postalCode = body.postalCode;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Could not verify postal code";
+          return c.json({ error: msg }, 400);
+        }
+        await Listing.updateMany(
+          { createdBy: user._id },
+          {
+            $set: {
+              latLng: user.latLng,
+              postalCode: user.postalCode,
+            },
+          }
+        );
+      }
       await user.save();
 
       return c.json(user, 200);
@@ -234,7 +264,7 @@ users.get(
   authMiddleware(),
   async (c) => {
     try {
-      const userDocs = await User.find().select("-auth0Id");
+      const userDocs = await User.find().select("_id name email role createdAt");
       return c.json(userDocs, 200);
     } catch (error: any) {
       return c.json({ error: error.message }, 500);

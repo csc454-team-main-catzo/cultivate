@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "../providers/userContext";
-import { geocodeZipCode } from "../utils/geocode";
 import {
   ApiStatusError,
   type DraftFromImageResponse,
@@ -20,12 +19,6 @@ interface ListingFormValues {
   qty: string;
   unit: string;
   price: string;
-  availability: {
-    startAt: string;
-    endAt: string;
-  };
-  fulfillment: string;
-  zipCode: string;
   photos: Array<{ imageId: string }>;
   attributes?: Record<string, unknown> | null;
 }
@@ -38,12 +31,6 @@ const INITIAL_FORM: ListingFormValues = {
   qty: "",
   unit: "",
   price: "",
-  availability: {
-    startAt: "",
-    endAt: "",
-  },
-  fulfillment: "",
-  zipCode: "",
   photos: [],
   attributes: undefined,
 };
@@ -86,17 +73,6 @@ export default function NewListing() {
     setError(null);
   }
 
-  function updateAvailability(
-    key: "startAt" | "endAt",
-    value: string
-  ) {
-    setForm((prev) => ({
-      ...prev,
-      availability: { ...prev.availability, [key]: value },
-    }));
-    setError(null);
-  }
-
   function preventWheelStepChange(
     e: React.WheelEvent<HTMLInputElement>
   ) {
@@ -110,7 +86,6 @@ export default function NewListing() {
     if (!values.qty.trim()) return "Quantity is required";
     if (!values.unit.trim()) return "Unit is required";
     if (!values.price.trim()) return "Price is required";
-    if (!values.zipCode.trim()) return "Postal code is required";
     if (!values.photos[0]?.imageId) return "Photo upload is required";
 
     const qtyNum = Number(values.qty);
@@ -254,19 +229,17 @@ export default function NewListing() {
       const validationMessage = validateForm(form);
       if (validationMessage) throw new Error(validationMessage);
 
+      if (!user?.postalCode?.trim()) {
+        throw new Error(
+          "Add a Canadian postal code in your profile before creating a listing."
+        );
+      }
+
       const price = Number(form.price);
       const qty = Number(form.qty);
-      const latLng = await geocodeZipCode(form.zipCode);
 
       const type = user?.role === "farmer" ? "supply" : "demand";
 
-      const deliveryWindow =
-        form.availability.startAt && form.availability.endAt
-          ? { startAt: form.availability.startAt, endAt: form.availability.endAt }
-          : undefined;
-
-      // Current backend create payload still expects item + latLng.
-      // We map from the richer form model without auto-filling unsafe fields.
       await createListing({
         type,
         title: form.title.trim(),
@@ -275,9 +248,7 @@ export default function NewListing() {
         price,
         qty,
         unit: (form.unit || "kg") as "kg" | "lb" | "count" | "bunch",
-        latLng,
         photos: form.photos,
-        deliveryWindow,
       });
 
       navigate("/listings");
@@ -299,8 +270,16 @@ export default function NewListing() {
       </h1>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-          {error}
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm space-y-2">
+          <p>{error}</p>
+          {error.includes("postal code") && (
+            <p>
+              <Link to="/profile" className="font-medium underline text-red-800">
+                Open profile
+              </Link>{" "}
+              to set your postal code.
+            </p>
+          )}
         </div>
       )}
       {toast && (
@@ -553,60 +532,13 @@ export default function NewListing() {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">
-              Delivery window — from
-            </label>
-            <input
-              type="datetime-local"
-              value={form.availability.startAt}
-              onChange={(e) => updateAvailability("startAt", e.target.value)}
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">
-              Delivery window — until
-            </label>
-            <input
-              type="datetime-local"
-              value={form.availability.endAt}
-              onChange={(e) => updateAvailability("endAt", e.target.value)}
-              className="input-field"
-            />
-          </div>
-        </div>
-
-        {/* <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1">
-            Fulfillment <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={form.fulfillment}
-            onChange={(e) => updateField("fulfillment", e.target.value)}
-            placeholder="e.g. pickup only"
-            className="input-field"
-          />
-        </div> */}
-
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1">
-            Postal code <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={form.zipCode}
-            onChange={(e) => updateField("zipCode", e.target.value)}
-            placeholder="e.g. K1A 0B1"
-            className="input-field"
-            maxLength={10}
-          />
-          <p className="text-zinc-500 text-xs mt-1">
-            Enter a Canadian postal code. We geocode this to listing coordinates.
-          </p>
-        </div>
+        <p className="text-sm text-zinc-600">
+          Listing location uses the postal code in your{" "}
+          <Link to="/profile" className="text-leaf-700 font-medium hover:underline">
+            profile
+          </Link>
+          .
+        </p>
 
         <button
           type="submit"

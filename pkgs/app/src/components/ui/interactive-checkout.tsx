@@ -84,8 +84,6 @@ export interface Product {
   requestedQty?: number;
   /** Pre-fill unit parsed from the user's chat message. */
   requestedUnit?: ProductUnit;
-  /** Optional delivery/availability window for listing. */
-  deliveryWindow?: { startAt: string; endAt: string };
   /** "exact" | "substitute" etc. — shown as a badge when present. */
   matchType?: string;
   /** 0–1 score — displayed alongside matchType badge. */
@@ -443,20 +441,6 @@ function InteractiveCheckout({
                         </div>
                         <div className="flex flex-col gap-0.5 text-sm text-zinc-500">
                           <ProductPriceLine product={product} selectedUnit={getSelectedUnit(product)} />
-                          {product.deliveryWindow?.startAt && product.deliveryWindow?.endAt && (
-                            <span className="text-xs text-zinc-500">
-                              Delivery:{" "}
-                              {new Date(product.deliveryWindow.startAt).toLocaleString(undefined, {
-                                dateStyle: "short",
-                                timeStyle: "short",
-                              })}{" "}
-                              –{" "}
-                              {new Date(product.deliveryWindow.endAt).toLocaleString(undefined, {
-                                dateStyle: "short",
-                                timeStyle: "short",
-                              })}
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>

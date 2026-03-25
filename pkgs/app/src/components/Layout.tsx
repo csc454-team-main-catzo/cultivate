@@ -4,6 +4,7 @@ import { useUser } from "../providers/userContext";
 import { Button } from "./ui/button";
 import { ProfileDropdown } from "./ui/profile-dropdown";
 import { cn } from "@/lib/utils";
+import { RequiredPostalCodeModal } from "./RequiredPostalCodeModal";
 
 export default function Layout() {
   const { isAuthenticated, loginWithRedirect } = useAuth0();
@@ -21,6 +22,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
+      <RequiredPostalCodeModal />
       <nav className="sticky top-0 z-50 w-full border-b border-zinc-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
         <div className="w-full px-4 sm:px-6 md:px-8 lg:px-10">
           <div className="flex items-center justify-between h-14 gap-4">

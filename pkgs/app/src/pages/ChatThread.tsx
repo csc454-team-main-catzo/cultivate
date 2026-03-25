@@ -52,7 +52,6 @@ interface ListingSummary {
   qty: number;
   unit?: string;
   status: string;
-  deliveryWindow?: { startAt: string; endAt: string };
   createdBy: { _id: string; name: string; email: string; role?: "farmer" | "restaurant" };
 }
 
@@ -285,20 +284,6 @@ export default function ChatThread() {
             <span>Qty: {listing.qty} {listing.unit ?? "kg"}</span>
             <span>${listing.price.toFixed(2)}/{listing.unit ?? "kg"}</span>
           </div>
-          {listing.deliveryWindow?.startAt && listing.deliveryWindow?.endAt && (
-            <p className="text-sm text-zinc-600 mt-1">
-              Delivery:{" "}
-              {new Date(listing.deliveryWindow.startAt).toLocaleString(undefined, {
-                dateStyle: "short",
-                timeStyle: "short",
-              })}{" "}
-              –{" "}
-              {new Date(listing.deliveryWindow.endAt).toLocaleString(undefined, {
-                dateStyle: "short",
-                timeStyle: "short",
-              })}
-            </p>
-          )}
           <p className="text-xs text-zinc-400 mt-1">
             by {listing.createdBy?.name || "Unknown"}
           </p>

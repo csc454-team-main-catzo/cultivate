@@ -14,7 +14,7 @@ export function useRegistration() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const register = async (role: 'farmer' | 'restaurant') => {
+  const register = async (role: 'farmer' | 'restaurant', postalCode: string) => {
     if (!isAuthenticated) {
       throw new Error('Must be authenticated to register');
     }
@@ -25,11 +25,12 @@ export function useRegistration() {
     try {
       const registerPayload = {
         role,
+        postalCode,
         ...(authUser?.email && { email: authUser.email }),
         ...(authUser?.name && { name: authUser.name }),
       };
       await users.registerUser({
-        registerUserRequest: registerPayload as { role: 'farmer' | 'restaurant' },
+        registerUserRequest: registerPayload,
       });
       // Refresh user data after registration
       await refreshUser();

@@ -77,11 +77,6 @@ const StrategyOptionSchema = v.object({
   tradeoffs: v.array(v.string()),
 });
 
-const DeliveryWindowSchema = v.object({
-  startAt: v.string(),
-  endAt: v.string(),
-});
-
 const StrategyAllocationSchema = v.object({
   lineItemIndex: v.number(),
   lineItemName: v.string(),
@@ -99,7 +94,6 @@ const StrategyAllocationSchema = v.object({
   subtotal: v.number(),
   matchType: v.string(),
   matchScore: v.number(),
-  deliveryWindow: v.optional(DeliveryWindowSchema),
 });
 
 const SourcingPlanSchema = v.object({
@@ -154,7 +148,6 @@ const AppendMessageBody = v.object({
       pricePerKg: v.number(),
       unit: v.optional(v.picklist(["kg", "lb", "count", "bunch"])),
       imageId: v.optional(v.string()),
-      deliveryWindow: v.optional(DeliveryWindowSchema),
     })
   ),
   options: v.optional(v.array(StrategyOptionSchema)),

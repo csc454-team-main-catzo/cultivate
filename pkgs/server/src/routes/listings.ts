@@ -6,6 +6,7 @@ import type { AuthenticatedContext } from "../middleware/types.js";
 import DraftSuggestion from "../models/DraftSuggestion.js";
 import ImageAsset from "../models/ImageAsset.js";
 import Listing, { type IResponse } from "../models/Listing.js";
+import { User } from "../models/User.js";
 import ChatThread, { type IChatThread } from "../models/ChatThread.js";
 import CFG from "../config.js";
 import { downloadBufferFromGridFS } from "../services/gridfs.js";
@@ -160,8 +161,21 @@ listings.post(
       const data = c.req.valid("json" as never) as ListingCreateInput;
       const userId = c.get("userId");
 
+      const user = await User.findById(userId);
+      if (!user?.postalCode || !user.latLng || user.latLng.length !== 2) {
+        return c.json(
+          {
+            error:
+              "Add a Canadian postal code in your profile before creating a listing.",
+          },
+          400
+        );
+      }
+
       const listing = await Listing.create({
         ...data,
+        latLng: user.latLng as [number, number],
+        postalCode: user.postalCode,
         createdBy: userId,
       });
 
@@ -664,15 +678,28 @@ listings.patch(
         return c.json({ error: "You can only edit your own listing" }, 403);
       }
 
+      if (data.photos !== undefined) {
+        for (const p of data.photos) {
+          const imageAsset = await ImageAsset.findById(p.imageId);
+          if (!imageAsset) {
+            return c.json({ error: "Image asset not found" }, 400);
+          }
+          if (imageAsset.owner.toString() !== userId) {
+            return c.json(
+              { error: "You can only attach images you uploaded" },
+              403
+            );
+          }
+        }
+        listing.photos = data.photos;
+      }
+
       if (data.title !== undefined) listing.title = data.title;
       if (data.item !== undefined) listing.item = data.item;
       if (data.description !== undefined) listing.description = data.description;
       if (data.price !== undefined) listing.price = data.price;
       if (data.qty !== undefined) listing.qty = data.qty;
       if (data.status !== undefined) listing.status = data.status;
-      if (data.latLng !== undefined) listing.latLng = data.latLng;
-      if (data.deliveryWindow !== undefined) listing.deliveryWindow = data.deliveryWindow;
-
       await listing.save();
 
       const populated = await Listing.findById(listing._id)
