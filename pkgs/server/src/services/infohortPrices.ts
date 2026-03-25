@@ -176,6 +176,53 @@ interface CachedInfohort {
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 let cache: CachedInfohort = { expiresAt: 0, records: [] };
+const DEFAULT_FETCH_TIMEOUT_MS = 45_000;
+const MAX_FETCH_RETRIES = 2;
+
+function parsePositiveIntEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
+function isTimeoutAbortError(err: unknown): boolean {
+  if (!err) return false;
+  if (err instanceof DOMException) {
+    return err.name === "TimeoutError" || err.name === "AbortError";
+  }
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    return msg.includes("timeout") || msg.includes("aborted");
+  }
+  return false;
+}
+
+async function fetchInfohortRecordsWithRetry(timeoutMs: number): Promise<InfohortRecord[]> {
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt <= MAX_FETCH_RETRIES; attempt += 1) {
+    const attemptTimeoutMs = timeoutMs + attempt * 15_000;
+    try {
+      const res = await fetch(INFOHORT_JSON_URL, {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(attemptTimeoutMs),
+      });
+      if (!res.ok) {
+        throw new Error(`Infohort fetch failed: ${res.status} ${res.statusText}`);
+      }
+      const raw: unknown = await res.json();
+      const rows = unwrapInfohortJson(raw);
+      return rows.map((row) => normaliseInfohortRow(row));
+    } catch (err) {
+      lastErr = err;
+      const canRetry = attempt < MAX_FETCH_RETRIES && isTimeoutAbortError(err);
+      if (!canRetry) break;
+      // Give the remote endpoint a brief recovery window before retrying.
+      await new Promise((resolve) => setTimeout(resolve, 1_000 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
+}
 
 /** Fetch the raw Infohort JSON feed (cached for 6 hours). */
 export async function fetchInfohortRecords(): Promise<InfohortRecord[]> {
@@ -184,18 +231,21 @@ export async function fetchInfohortRecords(): Promise<InfohortRecord[]> {
     return cache.records;
   }
 
-  const res = await fetch(INFOHORT_JSON_URL, {
-    headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(30_000),
-  });
-  if (!res.ok) {
-    throw new Error(`Infohort fetch failed: ${res.status} ${res.statusText}`);
+  const fetchTimeoutMs = parsePositiveIntEnv("INFOHORT_FETCH_TIMEOUT_MS", DEFAULT_FETCH_TIMEOUT_MS);
+  try {
+    const records = await fetchInfohortRecordsWithRetry(fetchTimeoutMs);
+    cache = { expiresAt: now + CACHE_TTL_MS, records };
+    return records;
+  } catch (err) {
+    if (cache.records.length > 0) {
+      console.warn(
+        "[InfohortPrices] Live fetch failed; using cached records:",
+        err instanceof Error ? err.message : String(err)
+      );
+      return cache.records;
+    }
+    throw err;
   }
-  const raw: unknown = await res.json();
-  const rows = unwrapInfohortJson(raw);
-  const records = rows.map((row) => normaliseInfohortRow(row));
-  cache = { expiresAt: now + CACHE_TTL_MS, records };
-  return records;
 }
 
 /**
