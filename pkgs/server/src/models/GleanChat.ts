@@ -24,6 +24,9 @@ export interface IGleanInventoryDraftData {
   weightKg: number;
   pricePerKg: number;
   unit?: "kg" | "lb" | "count" | "bunch";
+  /** Listing photo from chat upload; must persist so Post includes the image after reload. */
+  imageId?: string;
+  deliveryWindow?: { startAt: string; endAt: string };
 }
 
 export interface IGleanStrategyMetrics {
@@ -85,6 +88,8 @@ export interface IGleanChatMessage {
   role: GleanMessageRole;
   type: GleanMessageType;
   content?: string;
+  /** User message: image attachment id from chat upload. */
+  imageId?: string;
   items?: IGleanProductGridItem[];
   draft?: IGleanInventoryDraftData;
   options?: IGleanStrategyOption[];
@@ -127,6 +132,17 @@ const GleanInventoryDraftSchema = new Schema<IGleanInventoryDraftData>(
     weightKg: { type: Number, required: true },
     pricePerKg: { type: Number, required: true },
     unit: { type: String, required: false },
+    imageId: { type: String, required: false },
+    deliveryWindow: {
+      type: new Schema(
+        {
+          startAt: { type: String, required: true },
+          endAt: { type: String, required: true },
+        },
+        { _id: false }
+      ),
+      required: false,
+    },
   },
   { _id: false }
 );
@@ -237,6 +253,7 @@ const GleanChatMessageSchema = new Schema<IGleanChatMessage>(
       enum: ["text", "product_grid", "inventory_form", "strategy_options"],
     },
     content: { type: String, required: false },
+    imageId: { type: String, required: false },
     items: {
       type: [GleanProductGridItemSchema],
       required: false,

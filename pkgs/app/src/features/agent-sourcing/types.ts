@@ -19,6 +19,8 @@ export interface TextMessage extends AgentMessageBase {
   content: string;
   /** When true, content is still streaming (simulated). */
   isStreaming?: boolean;
+  /** User message: id of image uploaded via chat attachment. */
+  imageId?: string;
 }
 
 export interface ProductGridItem {

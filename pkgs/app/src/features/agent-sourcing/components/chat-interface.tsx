@@ -33,6 +33,17 @@ import { cn } from "@/lib/utils";
 /** First line of assistant messages that represent a completed mock checkout (used for styling). */
 const MOCK_ORDER_FIRST_LINE = "Mock order placed";
 
+/** Many mobile browsers leave `File.type` empty or use `application/octet-stream` for camera JPEGs. */
+function isChatImageAttachment(a: Attachment): boolean {
+  if (!a.file) return false;
+  const mime = (a.file.type || a.contentType || "").toLowerCase();
+  if (mime.startsWith("image/")) return true;
+  if (mime === "" || mime === "application/octet-stream") {
+    return /\.(jpe?g|png|webp|gif|heic|heif|bmp)$/i.test(a.file.name);
+  }
+  return false;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Parse "2kg of tomatoes" / "3 lb greens" from the user query        */
 /* ------------------------------------------------------------------ */
@@ -378,9 +389,7 @@ export function ChatInterface({
       }
 
       let imageId: string | undefined;
-      const imageAttachment = attachments.find(
-        (a) => a.file && a.contentType?.startsWith("image/")
-      );
+      const imageAttachment = attachments.find((a) => isChatImageAttachment(a));
       if (imageAttachment?.file) {
         try {
           const res = await uploadImage(imageAttachment.file);
@@ -1026,6 +1035,7 @@ function MessageBubble({
         {message.type === "inventory_form" && (
           <InventoryDraftCard
             draft={message.draft}
+            draftMessageId={message.id}
             primaryButtonClass={theme.primaryButtonClass}
             onPost={(draft) => onPostInventory?.(draft)}
           />
