@@ -37,8 +37,6 @@ export interface ProductGridItem {
   /** From API: listing photo id; frontend can resolve to imageUrl. */
   imageId?: string;
   imageUrl?: string;
-  /** When the listing is available for delivery/pickup (optional). */
-  deliveryWindow?: { startAt: string; endAt: string };
   /** "exact" | "substitute" etc. from the sourcing optimizer allocation. */
   matchType?: string;
   /** 0–1 score indicating how well this product matches the requested item. */
@@ -62,8 +60,6 @@ export interface InventoryDraftData {
   unit?: "kg" | "lb" | "count" | "bunch";
   /** When set, attach this image when posting (from chat upload). */
   imageId?: string;
-  /** Optional delivery/availability window when posting. */
-  deliveryWindow?: { startAt: string; endAt: string };
 }
 
 /** Returned after posting a listing from a Glean draft; used to append the persisted green confirmation message. */
@@ -119,7 +115,6 @@ export interface StrategyAllocation {
   subtotal: number;
   matchType: string;
   matchScore: number;
-  deliveryWindow?: { startAt: string; endAt: string };
 }
 
 export interface SourcingPlanData {

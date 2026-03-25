@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import CFG from "../config";
 import { useApi } from "../providers/apiContext";
 import { useUser } from "../providers/userContext";
-import { useListingActions } from "../hooks/useListingActions";
-import { geocodeZipCode } from "../utils/geocode";
+import { ApiStatusError, useListingActions } from "../hooks/useListingActions";
 import GhostTextarea from "../components/GhostTextarea";
 import { getListingDescriptionSuggestion } from "../utils/suggestions";
 
@@ -18,6 +18,7 @@ interface ListingData {
   price: number;
   qty: number;
   unit?: ListingUnit;
+  photos?: Array<{ imageId: string }>;
   latLng: [number, number];
   createdBy: { _id: string };
   status: string;
@@ -28,10 +29,16 @@ export default function EditListing() {
   const navigate = useNavigate();
   const { listings: listingsApi } = useApi();
   const { user } = useUser();
-  const { updateListing } = useListingActions();
+  const { updateListing, uploadImage } = useListingActions();
   const [listing, setListing] = useState<ListingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [photos, setPhotos] = useState<Array<{ imageId: string }>>([]);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
   const [item, setItem] = useState("");
@@ -39,7 +46,6 @@ export default function EditListing() {
   const [price, setPrice] = useState("");
   const [qty, setQty] = useState("");
   const [unit, setUnit] = useState<ListingUnit>("kg");
-  const [zipCode, setZipCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -66,6 +72,12 @@ export default function EditListing() {
         const raw = (response as { data?: unknown }).data ?? response;
         const data = raw as ListingData;
         setListing(data);
+        setPhotos(data.photos?.length ? [...data.photos] : []);
+        setSelectedImage(null);
+        setPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
         setTitle(data.title);
         setItem(data.item);
         setDescription(data.description);
@@ -80,6 +92,64 @@ export default function EditListing() {
     }
     fetchListing();
   }, [id, listingsApi]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const imageId = photos[0]?.imageId ?? "";
+  const displayImageSrc =
+    previewUrl ?? (imageId ? `${CFG.API_URL}/api/images/${imageId}` : null);
+
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const photosBeforeAttempt = [...photos];
+
+    setToast(null);
+    setSubmitError(null);
+    setSelectedImage(file);
+
+    const nextPreview = URL.createObjectURL(file);
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return nextPreview;
+    });
+
+    setUploadingImage(true);
+    try {
+      const upload = await uploadImage(file);
+      setPhotos([{ imageId: upload.imageId }]);
+    } catch (err: unknown) {
+      setPhotos(photosBeforeAttempt);
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      setSelectedImage(null);
+      if (err instanceof ApiStatusError) {
+        if (err.status === 413) {
+          setToast("Image too large. Please upload a smaller image.");
+          return;
+        }
+        if (err.status === 415) {
+          setToast("Unsupported format. Use JPEG, PNG, or WEBP.");
+          return;
+        }
+        if (err.status === 429) {
+          setToast("Too many upload requests. Please try again shortly.");
+          return;
+        }
+      }
+      setSubmitError(err instanceof Error ? err.message : "Failed to upload image");
+    } finally {
+      setUploadingImage(false);
+    }
+    e.target.value = "";
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -110,11 +180,8 @@ export default function EditListing() {
         price: isNaN(priceNum) || priceNum < 0 ? 0 : priceNum,
         qty: qtyNum,
         unit,
+        ...(photos.length > 0 ? { photos } : {}),
       };
-
-      if (zipCode.trim()) {
-        body.latLng = await geocodeZipCode(zipCode);
-      }
 
       await updateListing(listingId, body);
       navigate(`/listings/${listingId}`);
@@ -173,8 +240,72 @@ export default function EditListing() {
           {submitError}
         </div>
       )}
+      {toast && (
+        <div className="mb-4 p-3 bg-zinc-50 border border-zinc-200 text-zinc-800 rounded-lg text-sm">
+          {toast}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
+            Listing photo
+          </label>
+          <p className="text-xs text-zinc-500 mb-2">
+            Upload to add or replace the image. JPEG, PNG, or WEBP.
+          </p>
+          <label
+            className={`flex flex-col items-center justify-center w-full rounded-xl border-2 border-dashed cursor-pointer transition-colors overflow-hidden
+              ${
+                uploadingImage
+                  ? "border-leaf-300 bg-leaf-50"
+                  : imageId || previewUrl
+                    ? "border-leaf-400 bg-leaf-50"
+                    : "border-zinc-300 bg-zinc-50 hover:border-leaf-400 hover:bg-leaf-50"
+              }`}
+          >
+            {displayImageSrc ? (
+              <img
+                src={displayImageSrc}
+                alt="Listing photo"
+                className="w-full h-48 object-cover rounded-xl"
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-2 py-8 px-4 text-center select-none">
+                <svg
+                  className="w-10 h-10 text-zinc-400"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                  />
+                </svg>
+                <span className="text-sm font-medium text-zinc-700">
+                  Click to upload a photo
+                </span>
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleImageSelect}
+              className="sr-only"
+            />
+          </label>
+          {selectedImage && (
+            <p
+              className={`text-xs mt-1.5 ${uploadingImage ? "text-leaf-600 font-medium" : "text-zinc-500"}`}
+            >
+              {uploadingImage ? "⏳ Uploading…" : `✓ ${selectedImage.name}`}
+            </p>
+          )}
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-zinc-700 mb-1">
             Title <span className="text-red-500">*</span>
@@ -253,22 +384,13 @@ export default function EditListing() {
             className="input-field"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1">
-            Change location (postal code)
-          </label>
-          <input
-            type="text"
-            value={zipCode}
-            onChange={(e) => setZipCode(e.target.value)}
-            placeholder="Leave blank to keep current location"
-            className="input-field"
-            maxLength={10}
-          />
-          <p className="text-zinc-500 text-xs mt-1">
-            Enter a new Canadian postal code to update your listing’s location.
-          </p>
-        </div>
+        <p className="text-sm text-zinc-600">
+          Listing map location follows your profile postal code. Update it in{" "}
+          <Link to="/profile" className="text-leaf-700 font-medium hover:underline">
+            account settings
+          </Link>
+          .
+        </p>
         <button
           type="submit"
           disabled={submitting}

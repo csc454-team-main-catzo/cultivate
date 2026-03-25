@@ -10,7 +10,7 @@ export interface UpdateListingBody {
   qty?: number;
   unit?: "kg" | "lb" | "count" | "bunch";
   status?: string;
-  latLng?: [number, number];
+  photos?: Array<{ imageId: string }>;
 }
 
 export interface CreateListingBody {
@@ -21,10 +21,7 @@ export interface CreateListingBody {
   price: number;
   qty: number;
   unit?: "kg" | "lb" | "count" | "bunch";
-  latLng: [number, number];
   photos?: Array<{ imageId: string }>;
-  /** Optional delivery/availability window (ISO date strings). */
-  deliveryWindow?: { startAt: string; endAt: string };
 }
 
 export interface UploadImageResponse {

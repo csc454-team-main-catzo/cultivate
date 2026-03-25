@@ -43,15 +43,7 @@ export default function AgentSourcing() {
           price: draft.pricePerKg,
           qty: draft.weightKg,
           unit,
-          latLng: [0, 0] as [number, number],
           ...(draft.imageId && { photos: [{ imageId: draft.imageId }] }),
-          ...(draft.deliveryWindow?.startAt &&
-            draft.deliveryWindow?.endAt && {
-              deliveryWindow: {
-                startAt: draft.deliveryWindow.startAt,
-                endAt: draft.deliveryWindow.endAt,
-              },
-            }),
         };
         const created = (await createListing(body)) as { _id: string };
         setPostError(null);
