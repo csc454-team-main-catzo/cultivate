@@ -640,6 +640,7 @@ listings.patch(
       if (data.description !== undefined) listing.description = data.description;
       if (data.price !== undefined) listing.price = data.price;
       if (data.qty !== undefined) listing.qty = data.qty;
+      if (data.unit !== undefined) listing.unit = data.unit;
       if (data.status !== undefined) listing.status = data.status;
       await listing.save();
 
