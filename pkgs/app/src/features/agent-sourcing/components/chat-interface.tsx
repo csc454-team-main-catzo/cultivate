@@ -60,7 +60,7 @@ interface RequestedAmount {
 }
 
 const QTY_UNIT_RE =
-  /(\d+(?:\.\d+)?)\s*(kg|kgs|lb|lbs|pound|pounds|count|ct|bunch)\b(?:\s+(?:of\s+)?)?([\w\s]{2,}?)(?:\s+and\b|\s*,|$)/gi;
+  /(\d+(?:\.\d+)?)\s*(kg|kgs|lb|lbs|pound|pounds|count|ct|bunch)\b(?:\s+(?:of\s+)?)?([\w\s]{2,}?)(?:\s+and\b|\s*,|\s+(?=\d)|$)/gi;
 
 function parseRequestedAmounts(query: string): RequestedAmount[] {
   const results: RequestedAmount[] = [];
