@@ -66,25 +66,6 @@ export const ListingCreateSchema = v.object({
       })
     )
   ),
-  latLng: v.pipe(
-    v.array(v.number()),
-    v.length(2, "latLng must be exactly [latitude, longitude]"),
-    v.check(
-      (val) => val[0] >= -90 && val[0] <= 90,
-      "Latitude must be between -90 and 90"
-    ),
-    v.check(
-      (val) => val[1] >= -180 && val[1] <= 180,
-      "Longitude must be between -180 and 180"
-    ),
-    v.transform((val) => val as [number, number])
-  ),
-  deliveryWindow: v.optional(
-    v.object({
-      startAt: v.string("deliveryWindow.startAt must be an ISO date string"),
-      endAt: v.string("deliveryWindow.endAt must be an ISO date string"),
-    })
-  ),
   expiresAt: v.optional(v.string("expiresAt must be an ISO date string")),
 });
 
@@ -112,23 +93,9 @@ export const ListingUpdateSchema = v.partial(
     qty: v.pipe(v.number(), v.minValue(1, "Quantity must be at least 1")),
     unit: ResponseUnitSchema,
     status: ListingStatusSchema,
-    latLng: v.pipe(
-      v.array(v.number()),
-      v.length(2, "latLng must be exactly [latitude, longitude]"),
-      v.check(
-        (val) => val[0] >= -90 && val[0] <= 90,
-        "Latitude must be between -90 and 90"
-      ),
-      v.check(
-        (val) => val[1] >= -180 && val[1] <= 180,
-        "Longitude must be between -180 and 180"
-      ),
-      v.transform((val) => val as [number, number])
-    ),
-    deliveryWindow: v.optional(
+    photos: v.array(
       v.object({
-        startAt: v.string(),
-        endAt: v.string(),
+        imageId: v.pipe(v.string(), v.minLength(1, "Photo imageId is required")),
       })
     ),
   })
@@ -162,11 +129,6 @@ export type ResponseCreateInput = v.InferOutput<typeof ResponseCreateSchema>;
 
 /* ---------- Response Schemas ---------- */
 
-const DeliveryWindowSchema = v.object({
-  startAt: v.string(),
-  endAt: v.string(),
-});
-
 export const ListingResponseSchema = v.object({
   _id: v.string(),
   type: ListingTypeSchema,
@@ -182,7 +144,6 @@ export const ListingResponseSchema = v.object({
     })
   ),
   latLng: v.tuple([v.number(), v.number()]),
-  deliveryWindow: v.optional(v.nullable(DeliveryWindowSchema)),
   createdBy: PopulatedUserSchema,
   matchedResponseId: v.nullable(v.string()),
   status: ListingStatusSchema,

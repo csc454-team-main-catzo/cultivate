@@ -16,23 +16,26 @@ export async function geocodeZipCode(postalCode: string): Promise<[number, numbe
   }
   const normalized = `${compact.slice(0, 3)} ${compact.slice(3)}`;
 
+  const fetchOpts: RequestInit = {
+    headers: {
+      Accept: "application/json",
+      "Accept-Language": "en",
+      "User-Agent": "CultivateApp/1.0 (web; postal geocoding)",
+    },
+  };
+
   const endpoints = [
-    // Structured query tends to be more reliable for postal codes
-    `https://nominatim.openstreetmap.org/search?format=jsonv2&postalcode=${encodeURIComponent(compact)}&country=Canada&limit=1`,
-    // Free-form with country filter
-    `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(normalized)}&countrycodes=ca&limit=1`,
-    // Free-form without countrycodes (fallback if provider data is sparse)
-    `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(`${normalized}, Canada`)}&limit=1`,
+    `https://nominatim.openstreetmap.org/search?format=jsonv2&postalcode=${encodeURIComponent(compact)}&countrycodes=ca&limit=5`,
+    `https://nominatim.openstreetmap.org/search?format=jsonv2&postalcode=${encodeURIComponent(compact)}&country=Canada&limit=5`,
+    `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(normalized)}&countrycodes=ca&limit=5`,
+    `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(`${normalized}, Canada`)}&limit=5`,
+    `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(`${compact} Canada`)}&limit=5`,
   ];
 
   for (const url of endpoints) {
     let res: Response;
     try {
-      res = await fetch(url, {
-        headers: {
-          Accept: "application/json",
-        },
-      });
+      res = await fetch(url, fetchOpts);
     } catch {
       continue;
     }

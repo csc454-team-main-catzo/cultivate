@@ -58,12 +58,6 @@ const ResponseSchema = new Schema<IResponse>(
  *
  * Other users can respond with embedded offers in the `responses` array.
  */
-/** Optional delivery/availability window (e.g. when farmer can deliver or pickup is available). */
-export interface IDeliveryWindow {
-  startAt: Date;
-  endAt: Date;
-}
-
 export interface IListing extends Document {
   type: "demand" | "supply";
   title: string;
@@ -74,8 +68,8 @@ export interface IListing extends Document {
   unit: string;
   photos: Array<{ imageId: string }>;
   latLng: [number, number];
-  /** When the listing is available for delivery/pickup (optional). */
-  deliveryWindow?: IDeliveryWindow;
+  /** Copied from creator profile at post time; not exposed in public API responses. */
+  postalCode?: string;
   createdBy: Types.ObjectId;
   matchedResponseId: Types.ObjectId | null;
   status: "open" | "matched" | "fulfilled" | "expired";
@@ -157,12 +151,11 @@ const ListingSchema = new Schema<IListing>(
           "latLng must be a [latitude, longitude] pair with valid coordinates",
       },
     },
-    deliveryWindow: {
-      type: {
-        startAt: { type: Date, required: true },
-        endAt: { type: Date, required: true },
-      },
+    postalCode: {
+      type: String,
       required: false,
+      trim: true,
+      select: false,
     },
     createdBy: {
       type: Schema.Types.ObjectId,

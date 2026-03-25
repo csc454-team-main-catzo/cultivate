@@ -94,7 +94,6 @@ export interface SupplierCandidate {
   availableQty: number;
   unit: string;
   pricePerUnit: number;
-  deliveryWindow?: { startAt: string; endAt: string };
   imageId?: string;
   matchType: "exact" | "substitute" | "cluster";
   matchScore: number;
@@ -118,7 +117,6 @@ export interface FulfillmentAllocation {
   subtotal: number;
   matchType: "exact" | "substitute" | "cluster";
   matchScore: number;
-  deliveryWindow?: { startAt: string; endAt: string };
 }
 
 export interface StrategyMetrics {
@@ -237,24 +235,6 @@ function convertToBaseUnit(qty: number, fromUnit: string, toUnit: string): numbe
   return qty;
 }
 
-function deliveryOverlap(
-  preferred: { startAt: string; endAt: string } | undefined,
-  available: { startAt: string; endAt: string } | undefined
-): number {
-  if (!preferred || !available) return 0.5;
-  const pStart = new Date(preferred.startAt).getTime();
-  const pEnd = new Date(preferred.endAt).getTime();
-  const aStart = new Date(available.startAt).getTime();
-  const aEnd = new Date(available.endAt).getTime();
-  if (isNaN(pStart) || isNaN(pEnd) || isNaN(aStart) || isNaN(aEnd)) return 0.5;
-  const overlapStart = Math.max(pStart, aStart);
-  const overlapEnd = Math.min(pEnd, aEnd);
-  if (overlapStart >= overlapEnd) return 0;
-  const overlapMs = overlapEnd - overlapStart;
-  const preferredMs = pEnd - pStart;
-  return preferredMs > 0 ? Math.min(overlapMs / preferredMs, 1) : 0.5;
-}
-
 const STOP_WORDS = new Set([
   "i", "need", "want", "looking", "for", "some", "by", "the", "a", "an",
   "kg", "lb", "and", "or", "to", "this", "week", "next", "please", "can", "you",
@@ -335,7 +315,6 @@ interface RawListing {
   qty: number;
   unit: string;
   photos?: Array<{ imageId?: string }>;
-  deliveryWindow?: { startAt?: Date | string; endAt?: Date | string };
   createdBy: { _id: unknown; name?: string; role?: string } | null;
 }
 
@@ -461,7 +440,6 @@ function buildCandidates(
 
     const createdBy = doc.createdBy;
     const photo = Array.isArray(doc.photos) && doc.photos.length > 0 ? doc.photos[0] : null;
-    const dw = doc.deliveryWindow;
 
     return {
       listingId: id,
@@ -473,13 +451,6 @@ function buildCandidates(
       availableQty: doc.qty ?? 0,
       unit: doc.unit ?? "kg",
       pricePerUnit: doc.price ?? 0,
-      deliveryWindow:
-        dw?.startAt && dw?.endAt
-          ? {
-              startAt: typeof dw.startAt === "string" ? dw.startAt : (dw.startAt as Date).toISOString(),
-              endAt: typeof dw.endAt === "string" ? dw.endAt : (dw.endAt as Date).toISOString(),
-            }
-          : undefined,
       imageId: photo?.imageId != null ? String(photo.imageId) : undefined,
       matchType,
       matchScore,
@@ -551,7 +522,6 @@ function allocateGreedy(
           subtotal: adjSubtotal,
           matchType: candidate.matchType,
           matchScore: candidate.matchScore,
-          deliveryWindow: candidate.deliveryWindow,
         });
         remaining -= affordableQty;
         totalCost += adjSubtotal;
@@ -576,7 +546,6 @@ function allocateGreedy(
         subtotal,
         matchType: candidate.matchType,
         matchScore: candidate.matchScore,
-        deliveryWindow: candidate.deliveryWindow,
       });
 
       remaining -= allocateQty;
@@ -611,15 +580,11 @@ function computeMetrics(allocations: FulfillmentAllocation[], lineItems: OrderLi
     ? allocations.reduce((s, a) => s + a.matchScore * a.allocatedQty, 0) / Math.max(totalAllocated, 1)
     : 0;
 
-  const deliveries = allocations.filter((a) => a.deliveryWindow?.startAt).map((a) => a.deliveryWindow!.startAt);
-  const earliest = deliveries.length > 0 ? deliveries.sort()[0] : undefined;
-
   return {
     totalCost: Math.round(totalCost * 100) / 100,
     supplierCount: suppliers.size,
     coveragePercent: totalNeeded > 0 ? Math.round((totalAllocated / totalNeeded) * 100) : 0,
     avgMatchScore: Math.round(avgMatchScore * 100) / 100,
-    estimatedDelivery: earliest,
   };
 }
 
@@ -669,25 +634,20 @@ function generateStrategies(
     if (allUnfulfillable.length === 0) allUnfulfillable = qualityResult.unfulfillable;
   }
 
-  // Strategy 3: Optimize for delivery speed
-  const speedResult = allocateGreedy(
+  // Strategy 3: Balanced match and price
+  const balancedResult = allocateGreedy(
     pools,
-    (c) => {
-      const timeScore = c.deliveryWindow
-        ? deliveryOverlap(constraints?.preferredDeliveryWindow, c.deliveryWindow)
-        : 0.3;
-      return timeScore * 0.5 + c.matchScore * 0.3 + (1 / Math.max(c.pricePerUnit, 0.01)) * 0.2;
-    },
+    (c) => c.matchScore * 0.55 + (1 / Math.max(c.pricePerUnit, 0.01)) * 0.45,
     constraints
   );
-  if (speedResult.allocations.length > 0) {
+  if (balancedResult.allocations.length > 0) {
     strategies.push({
       id: generateStrategyId(),
-      name: "Fastest Delivery",
-      description: "Prioritizes suppliers with the best delivery window alignment.",
-      allocations: speedResult.allocations,
-      metrics: computeMetrics(speedResult.allocations, lineItems),
-      tradeoffs: buildTradeoffs(speedResult, "speed"),
+      name: "Balanced match",
+      description: "Balances strong product matches with competitive pricing.",
+      allocations: balancedResult.allocations,
+      metrics: computeMetrics(balancedResult.allocations, lineItems),
+      tradeoffs: buildTradeoffs(balancedResult, "balanced"),
       rank: 0,
     });
   }
@@ -729,7 +689,7 @@ function generateStrategies(
   strategies.sort((a, b) => {
     switch (priority) {
       case "cost": return a.metrics.totalCost - b.metrics.totalCost;
-      case "speed": return (b.metrics.estimatedDelivery ? 1 : 0) - (a.metrics.estimatedDelivery ? 1 : 0);
+      case "speed": return b.metrics.avgMatchScore - a.metrics.avgMatchScore;
       case "quality": return b.metrics.avgMatchScore - a.metrics.avgMatchScore;
       case "coverage":
       default: return b.metrics.coveragePercent - a.metrics.coveragePercent || a.metrics.totalCost - b.metrics.totalCost;
@@ -754,7 +714,7 @@ function buildTradeoffs(
   if (result.unfulfillable.length > 0) tradeoffs.push(`${result.unfulfillable.length} item(s) cannot be fully fulfilled`);
   if (focus === "cost" && subs.length > 0) tradeoffs.push("Lower cost may come with less precise product matches");
   if (focus === "quality") tradeoffs.push("Higher match quality may cost more than the cheapest option");
-  if (focus === "speed") tradeoffs.push("Faster delivery may limit supplier options");
+  if (focus === "balanced") tradeoffs.push("Balanced strategies may blend cost and match quality");
   if (focus === "consolidation") tradeoffs.push("Fewer suppliers may mean higher cost or lower match quality");
   if (total === 0) tradeoffs.push("No allocations could be made within the given constraints");
   return tradeoffs;

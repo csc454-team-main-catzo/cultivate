@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { CanadianPostalSchema } from "../utils/canadianPostal.js";
 
 export const UserRoleSchema = v.picklist(
   ["farmer", "restaurant"],
@@ -14,6 +15,7 @@ export const UserRegisterSchema = v.object({
   role: UserRoleSchema,
   email: v.optional(v.string()),
   name: v.optional(v.string()),
+  postalCode: CanadianPostalSchema,
 });
 
 export type UserRegisterInput = v.InferOutput<typeof UserRegisterSchema>;
@@ -24,6 +26,7 @@ export const UserUpdateSchema = v.object({
   avatar: v.optional(
     v.nullable(v.pipe(v.string(), v.maxLength(300000)))
   ), // Base64 data URL, ~225KB max
+  postalCode: v.optional(CanadianPostalSchema),
 });
 
 export type UserUpdateInput = v.InferOutput<typeof UserUpdateSchema>;
@@ -35,6 +38,8 @@ const BaseUserSchema = v.object({
   role: UserRoleResponseSchema,
   auth0Id: v.string(),
   avatar: v.optional(v.nullable(v.string())),
+  postalCode: v.optional(v.string()),
+  latLng: v.optional(v.tuple([v.number(), v.number()])),
   createdAt: v.string(),
 });
 

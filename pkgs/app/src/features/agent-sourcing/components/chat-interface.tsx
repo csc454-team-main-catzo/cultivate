@@ -31,6 +31,7 @@ import { CheckoutForm } from "@/components/ui/checkout-form";
 import { OrderConfirmationCard } from "@/components/ui/order-confirmation-card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 /** First line of assistant messages that represent a completed mock checkout (used for styling). */
 const MOCK_ORDER_FIRST_LINE = "Mock order placed";
@@ -144,6 +145,12 @@ function buildListingPostedMessage(info: ListingPostSuccessInfo): string {
     "",
     `Listing ID: ${info.listingId}`,
   ].join("\n");
+}
+
+/** Parses `Listing ID: …` from persisted assistant copy (Mongo ObjectId). */
+function listingIdFromPostedMessageContent(content: string): string | null {
+  const m = content.match(/Listing ID:\s*([a-f\d]{24})\b/i);
+  return m?.[1] ?? null;
 }
 
 interface ChatInterfaceProps {
@@ -476,7 +483,6 @@ export function ChatInterface({
         imageUrl: alloc.supplier.imageId
           ? `${CFG.API_URL}/api/images/${alloc.supplier.imageId}`
           : undefined,
-        deliveryWindow: alloc.deliveryWindow,
         matchType: alloc.matchType,
         matchScore: alloc.matchScore,
       }));
@@ -493,7 +499,6 @@ export function ChatInterface({
         color: item.farmerName ?? "",
         unit: (item.unit as ProductUnit) ?? "kg",
         availableQty: item.qty,
-        deliveryWindow: item.deliveryWindow,
         quantity: item.qty,
       }));
       setCart(autoCart);
@@ -919,8 +924,28 @@ function MessageBubble({
       </Avatar>
       <div className="min-w-0 flex-1 space-y-3">
         {message.type === "text" && (
-          message.content.startsWith(MOCK_ORDER_FIRST_LINE) ||
           message.content.startsWith(LISTING_POSTED_FIRST_LINE) ? (
+            <div className="rounded-2xl rounded-bl-md border border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-zinc-900 shadow-sm">
+              <div className="flex items-start gap-2.5">
+                <PackageCheck className="h-5 w-5 shrink-0 text-emerald-600 mt-0.5" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
+                  {(() => {
+                    const postedListingId = listingIdFromPostedMessageContent(message.content);
+                    return postedListingId ? (
+                      <div className="flex justify-end pt-4">
+                        <Button asChild className={cn(theme.primaryButtonClass)}>
+                          <Link to={`/listings/${postedListingId}`} state={{ from: "chat" }}>
+                            View listing
+                          </Link>
+                        </Button>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              </div>
+            </div>
+          ) : message.content.startsWith(MOCK_ORDER_FIRST_LINE) ? (
             <div className="rounded-2xl rounded-bl-md border border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-zinc-900 shadow-sm">
               <div className="flex items-start gap-2.5">
                 <PackageCheck className="h-5 w-5 shrink-0 text-emerald-600 mt-0.5" aria-hidden />
@@ -1061,7 +1086,6 @@ function MessageBubble({
                   ...(match
                     ? { requestedQty: match.qty, requestedUnit: match.unit }
                     : { requestedQty: item.qty }),
-                  deliveryWindow: item.deliveryWindow,
                   matchType: item.matchType,
                   matchScore: item.matchScore,
                 };

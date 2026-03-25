@@ -91,7 +91,7 @@ export interface GleanAgentRequest {
   role: "farmer" | "restaurant";
   priorMessages?: PriorMessage[];
   inventoryConstraints?: InventoryConstraints;
-  /** When set (farmer), use Azure CV to fill title/item/description from this image, then merge with text for price, qty, delivery window. */
+  /** When set (farmer), use Azure CV to fill title/item/description from this image, then merge with text for price and qty. */
   imageId?: string;
   /** Required when imageId is set, for image ownership check. */
   userId?: string;
@@ -107,8 +107,6 @@ export interface DraftListing {
   unit?: "kg" | "lb" | "count" | "bunch";
   /** Attach this image to the listing when posting (from chat upload). */
   imageId?: string;
-  /** Optional delivery/availability window (from user text). */
-  deliveryWindow?: { startAt: string; endAt: string };
 }
 
 /** Product suggestion item (restaurant) — matches ProductGridItem on frontend. */
@@ -124,8 +122,6 @@ export interface ProductSuggestionItem {
   farmerName: string;
   farmerId: string;
   imageId?: string;
-  /** When the listing is available for delivery/pickup (optional). */
-  deliveryWindow?: { startAt: string; endAt: string };
 }
 
 export type GleanAgentPayload =
@@ -236,7 +232,6 @@ async function fetchListingMatches(
   return listings.map((doc) => {
     const createdBy = doc.createdBy as { _id: unknown; name?: string } | null;
     const photo = Array.isArray(doc.photos) && doc.photos.length > 0 ? doc.photos[0] : null;
-    const dw = doc.deliveryWindow as { startAt?: Date; endAt?: Date } | undefined;
     return {
       id: String(doc._id),
       listingId: String(doc._id),
@@ -249,18 +244,11 @@ async function fetchListingMatches(
       farmerName: createdBy?.name ?? defaultCreatorName,
       farmerId: createdBy?._id != null ? String(createdBy._id) : "",
       imageId: photo?.imageId != null ? String(photo.imageId) : undefined,
-      deliveryWindow:
-        dw?.startAt && dw?.endAt
-          ? {
-              startAt: typeof dw.startAt === "string" ? dw.startAt : (dw.startAt as Date).toISOString(),
-              endAt: typeof dw.endAt === "string" ? dw.endAt : (dw.endAt as Date).toISOString(),
-            }
-          : undefined,
     };
   });
 }
 
-const FARMER_EXTRACT_FROM_TEXT_SYSTEM = `You are a Glean assistant. The user is creating a listing and we already have title, item, and description from their uploaded image. From their message extract ONLY: price per kg (number), weight/quantity in kg (number), unit (kg/lb/count/bunch), and if they mention when they are available for delivery or pickup, output a delivery window as two ISO 8601 date-time strings (startAt, endAt). Use the next occurrence of the mentioned day/time if relative (e.g. "Friday 9am-5pm" = this or next Friday; "delivered from 10 to 12:00 p.m. on Sunday" = next Sunday 10:00 and 12:00 in local time). Always include deliveryWindow with valid startAt and endAt whenever the user mentions a time window (e.g. "10 to 12", "10-12", "from X to Y on Sunday"). Reply with exactly one JSON object (no markdown): { "pricePerKg": number or null, "weightKg": number or null, "unit": "kg"|"lb"|"count"|"bunch" or null, "deliveryWindow": { "startAt": "ISO8601", "endAt": "ISO8601" } or null }. Omit deliveryWindow only if no time/delivery window is mentioned.`;
+const FARMER_EXTRACT_FROM_TEXT_SYSTEM = `You are a Glean assistant. The user is creating a listing and we already have title, item, and description from their uploaded image. From their message extract ONLY: price per kg (number), weight/quantity (number), and unit (kg/lb/count/bunch). Reply with exactly one JSON object (no markdown): { "pricePerKg": number or null, "weightKg": number or null, "unit": "kg"|"lb"|"count"|"bunch" or null }.`;
 
 const FARMER_SYSTEM = `You are a Glean assistant helping farmers list their produce. Prices are based on daily Toronto wholesale market data from Agriculture and Agri-Food Canada (AAFC Infohort). From the user's message, extract a draft listing. Respond with exactly one JSON object (no markdown, no code block) with this shape:
 {
@@ -271,11 +259,10 @@ const FARMER_SYSTEM = `You are a Glean assistant helping farmers list their prod
     "description": "Optional 1-2 sentence description or empty string",
     "weightKg": number (numeric only, e.g. 20),
     "pricePerKg": number (e.g. 3.5),
-    "unit": "kg" or "lb" or "count" or "bunch",
-    "deliveryWindow": { "startAt": "ISO 8601 date-time", "endAt": "ISO 8601 date-time" } or null — whenever the user mentions a delivery or availability time (e.g. "delivered from 10 to 12:00 p.m. on Sunday" or "Sunday 10 to 12 PM" → next Sunday 10:00 and 12:00 in local time as ISO strings; "10-12 on Friday" → next Friday 10:00 and 12:00)
+    "unit": "kg" or "lb" or "count" or "bunch"
   }
 }
-If the user did not specify weight or price, use sensible defaults (e.g. weightKg 20, pricePerKg 3.5). Always set deliveryWindow with valid startAt and endAt ISO strings when the user mentions any time range for delivery or availability; omit only if no time is mentioned.`;
+If the user did not specify weight or price, use sensible defaults (e.g. weightKg 20, pricePerKg 3.5).`;
 
 const RESTAURANT_INTRO_SYSTEM = `You are a Glean assistant. A restaurant asked for produce and we found matching listings. Generate exactly one short, friendly intro sentence that mentions the number of matches. Vary your wording — use different phrasings, don't always end with the same line.
 
@@ -435,7 +422,7 @@ export async function runGleanAgent(req: GleanAgentRequest): Promise<GleanAgentR
     };
   }
 
-  // Farmer with image: Azure CV draft + merge text (price, qty, delivery window)
+  // Farmer with image: Azure CV draft + merge text (price, qty)
   if (role === "farmer" && req.imageId && req.userId) {
     let imageFields: Awaited<ReturnType<typeof getDraftSuggestedFieldsFromImage>> | null = null;
     try {
@@ -480,15 +467,10 @@ export async function runGleanAgent(req: GleanAgentRequest): Promise<GleanAgentR
             pricePerKg?: number | null;
             weightKg?: number | null;
             unit?: string | null;
-            deliveryWindow?: { startAt?: string; endAt?: string } | null;
           };
           const weightKg = Number(parsed.weightKg) || 20;
           const pricePerKg = Number(parsed.pricePerKg) ?? imageFields.suggestedPricePerKg ?? 2.5;
           const unit = ["kg", "lb", "count", "bunch"].includes(parsed.unit as string) ? parsed.unit : (imageFields.suggestedUnit ?? "kg");
-          const deliveryWindow =
-            parsed.deliveryWindow?.startAt && parsed.deliveryWindow?.endAt
-              ? { startAt: parsed.deliveryWindow.startAt, endAt: parsed.deliveryWindow.endAt }
-              : undefined;
           const draft: DraftListing = {
             title: imageFields.title,
             item: imageFields.item,
@@ -497,7 +479,6 @@ export async function runGleanAgent(req: GleanAgentRequest): Promise<GleanAgentR
             pricePerKg,
             unit: unit as "kg" | "lb" | "count" | "bunch",
             imageId: req.imageId,
-            deliveryWindow,
           };
           return {
             introText: "Here's your draft from the photo and your message. Price is based on today's Toronto wholesale market data. Confirm weight and price, then tap Post.",
@@ -557,13 +538,9 @@ export async function runGleanAgent(req: GleanAgentRequest): Promise<GleanAgentR
       });
       const raw = res.choices[0]?.message?.content;
       if (raw) {
-        const parsed = JSON.parse(raw) as { introText?: string; draft?: DraftListing & { deliveryWindow?: { startAt?: string; endAt?: string } | null } };
+        const parsed = JSON.parse(raw) as { introText?: string; draft?: DraftListing };
         if (parsed.draft && typeof parsed.draft === "object") {
           const d = parsed.draft;
-          const deliveryWindow =
-            d.deliveryWindow?.startAt && d.deliveryWindow?.endAt
-              ? { startAt: d.deliveryWindow.startAt, endAt: d.deliveryWindow.endAt }
-              : undefined;
           const draft: DraftListing = applyFarmerUploadedImage(
             {
               title: String(d.title ?? "").slice(0, 150) || "Fresh produce",
@@ -572,7 +549,6 @@ export async function runGleanAgent(req: GleanAgentRequest): Promise<GleanAgentR
               weightKg: Number(d.weightKg) || 20,
               pricePerKg: Number(d.pricePerKg) || 2.5,
               unit: ["kg", "lb", "count", "bunch"].includes(d.unit as string) ? d.unit : "kg",
-              ...(deliveryWindow && { deliveryWindow }),
             },
             req
           );

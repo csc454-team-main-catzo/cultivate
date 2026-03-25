@@ -14,9 +14,11 @@ interface AccountSettingsProps {
   name: string;
   email: string;
   avatar?: string | null;
+  postalCode?: string | null;
   onNameSave?: (name: string) => Promise<void>;
   onEmailSave?: (email: string) => Promise<void>;
   onAvatarSave?: (avatarDataUrl: string) => Promise<void>;
+  onPostalSave?: (postalCode: string) => Promise<void>;
 }
 
 function getInitials(name: string): string {
@@ -40,22 +42,30 @@ export function AccountSettings({
   name,
   email,
   avatar: initialAvatar,
+  postalCode: initialPostal,
   onNameSave,
   onEmailSave,
   onAvatarSave,
+  onPostalSave,
 }: AccountSettingsProps) {
   const [photo, setPhoto] = React.useState<string>(
     initialAvatar ?? DEFAULT_AVATAR
   );
   const [nameValue, setNameValue] = React.useState(name);
   const [emailValue, setEmailValue] = React.useState(email);
+  const [postalValue, setPostalValue] = React.useState(initialPostal ?? "");
   const [nameSaving, setNameSaving] = React.useState(false);
   const [emailSaving, setEmailSaving] = React.useState(false);
+  const [postalSaving, setPostalSaving] = React.useState(false);
 
   React.useEffect(() => {
     setNameValue(name);
     setEmailValue(email);
   }, [name, email]);
+
+  React.useEffect(() => {
+    setPostalValue(initialPostal ?? "");
+  }, [initialPostal]);
 
   React.useEffect(() => {
     if (initialAvatar) setPhoto(initialAvatar);
@@ -87,6 +97,16 @@ export function AccountSettings({
       await onEmailSave(emailValue);
     } finally {
       setEmailSaving(false);
+    }
+  };
+
+  const handlePostalSave = async () => {
+    if (!onPostalSave || postalValue.trim() === (initialPostal ?? "").trim()) return;
+    setPostalSaving(true);
+    try {
+      await onPostalSave(postalValue.trim());
+    } finally {
+      setPostalSaving(false);
     }
   };
 
@@ -155,6 +175,44 @@ export function AccountSettings({
             </div>
           </SectionColumns>
           <Separator />
+
+          {onPostalSave && (
+            <>
+              <SectionColumns
+                title="Postal code"
+                description="Canadian postal code (e.g. K1A 0B1). Used for listing location."
+              >
+                <div className="w-full space-y-1">
+                  <Label htmlFor="postal" className="sr-only">
+                    Postal code
+                  </Label>
+                  <div className="flex w-full items-center justify-center gap-2">
+                    <Input
+                      id="postal"
+                      placeholder="K1A 0B1"
+                      value={postalValue}
+                      onChange={(e) => setPostalValue(e.target.value)}
+                      maxLength={10}
+                      autoComplete="postal-code"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePostalSave}
+                      disabled={
+                        postalSaving ||
+                        postalValue.trim() === (initialPostal ?? "").trim()
+                      }
+                    >
+                      {postalSaving ? "Saving..." : "Save"}
+                    </Button>
+                  </div>
+                </div>
+              </SectionColumns>
+              <Separator />
+            </>
+          )}
 
           <SectionColumns
             title="Your Email"
