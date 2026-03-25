@@ -169,6 +169,8 @@ export interface RegisterUser201Response {
     'role': RegisterUser201ResponseRoleEnum;
     'auth0Id': string | null;
     'avatar': string | null;
+    'postalCode'?: string | null;
+    'latLng'?: [number, number] | null;
     'createdAt': string | null;
 }
 
@@ -181,6 +183,7 @@ export type RegisterUser201ResponseRoleEnum = typeof RegisterUser201ResponseRole
 
 export interface RegisterUserRequest {
     'role': RegisterUserRequestRoleEnum;
+    'postalCode': string;
 }
 
 export const RegisterUserRequestRoleEnum = {
@@ -194,6 +197,7 @@ export interface UpdateUserRequest {
     'name'?: string;
     'email'?: string;
     'avatar'?: string | null;
+    'postalCode'?: string;
 }
 
 /**
