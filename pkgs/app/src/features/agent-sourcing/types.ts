@@ -66,6 +66,14 @@ export interface InventoryDraftData {
   deliveryWindow?: { startAt: string; endAt: string };
 }
 
+/** Returned after posting a listing from a Glean draft; used to append the persisted green confirmation message. */
+export interface ListingPostSuccessInfo {
+  listingId: string;
+  title: string;
+  item: string;
+  priceLine: string;
+}
+
 export interface InventoryFormMessage extends AgentMessageBase {
   type: "inventory_form";
   draft: InventoryDraftData;

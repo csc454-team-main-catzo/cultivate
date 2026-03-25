@@ -10,6 +10,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+const UNIT_OPTIONS: Array<NonNullable<InventoryDraftData["unit"]>> = [
+  "kg",
+  "lb",
+  "count",
+  "bunch",
+];
+
+const selectClassName =
+  "flex h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400/20 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50";
+
 interface InventoryDraftCardProps {
   draft: InventoryDraftData;
   /** Assistant message id — re-hydrate title/description/weights only when a new draft card appears (keeps CV/AI-filled text stable while typing). */
@@ -28,12 +38,16 @@ export function InventoryDraftCard({
   const [description, setDescription] = useState(draft.description ?? "");
   const [weight, setWeight] = useState(String(draft.weightKg));
   const [price, setPrice] = useState(String(draft.pricePerKg));
+  const [unit, setUnit] = useState<NonNullable<InventoryDraftData["unit"]>>(
+    (draft.unit ?? "kg") as NonNullable<InventoryDraftData["unit"]>
+  );
 
   useEffect(() => {
     setTitle(draft.title);
     setDescription(draft.description ?? "");
     setWeight(String(draft.weightKg));
     setPrice(String(draft.pricePerKg));
+    setUnit((draft.unit ?? "kg") as NonNullable<InventoryDraftData["unit"]>);
     // Re-hydrate only when the assistant sends a new inventory card, not when `draft` is re-created each render.
   }, [draftMessageId]); // eslint-disable-line react-hooks/exhaustive-deps -- draft fields read once per new message id
 
@@ -42,11 +56,11 @@ export function InventoryDraftCard({
       getListingDescriptionSuggestion(text, {
         itemName: draft.item,
         qty: weight,
-        unit: draft.unit ?? "kg",
+        unit,
         price,
-        priceUnit: draft.unit ?? "kg",
+        priceUnit: unit,
       }),
-    [draft.item, draft.unit, weight, price]
+    [draft.item, unit, weight, price]
   );
 
   const weightNum = Number(weight) || 0;
@@ -68,6 +82,7 @@ export function InventoryDraftCard({
       description: descTrimmed.slice(0, 2000),
       weightKg: weightNum,
       pricePerKg: priceNum,
+      unit,
     });
   }
 
@@ -129,7 +144,7 @@ export function InventoryDraftCard({
             <div className="grid grid-cols-2 gap-4">
               <label className="space-y-1.5 block">
                 <span className="text-xs font-medium text-zinc-500">
-                  Weight ({draft.unit ?? "kg"})
+                  Quantity <span className="text-zinc-400">({unit})</span>
                 </span>
                 <Input
                   type="number"
@@ -140,8 +155,25 @@ export function InventoryDraftCard({
                 />
               </label>
               <label className="space-y-1.5 block">
+                <span className="text-xs font-medium text-zinc-500">Unit</span>
+                <select
+                  className={selectClassName}
+                  value={unit}
+                  onChange={(e) =>
+                    setUnit(e.target.value as NonNullable<InventoryDraftData["unit"]>)
+                  }
+                  aria-label="Listing unit"
+                >
+                  {UNIT_OPTIONS.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1.5 block col-span-2">
                 <span className="text-xs font-medium text-zinc-500">
-                  Price per {draft.unit ?? "kg"} ($)
+                  Price per {unit} ($)
                 </span>
                 <Input
                   type="number"

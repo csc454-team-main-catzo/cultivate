@@ -4,11 +4,19 @@ import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
+export type ConfirmationDetailRow = {
+  label: string;
+  value: string;
+  isBold?: boolean;
+};
+
 interface OrderConfirmationCardProps {
-  orderId: string;
-  paymentMethod: string;
-  dateTime: string;
-  totalAmount: string;
+  orderId?: string;
+  paymentMethod?: string;
+  dateTime?: string;
+  totalAmount?: string;
+  /** When set, replaces the default order summary rows (e.g. listing posted). */
+  detailRows?: ConfirmationDetailRow[];
   onClose: () => void;
   title?: string;
   buttonText?: string;
@@ -19,22 +27,25 @@ interface OrderConfirmationCardProps {
 export const OrderConfirmationCard: React.FC<
   OrderConfirmationCardProps
 > = ({
-  orderId,
-  paymentMethod,
-  dateTime,
-  totalAmount,
+  orderId = "",
+  paymentMethod = "",
+  dateTime = "",
+  totalAmount = "",
+  detailRows,
   onClose,
   title = "Your order has been successfully submitted",
   buttonText = "Close",
   icon = <CheckCircle2 className="h-12 w-12 text-emerald-500" />,
   className,
 }) => {
-  const details = [
-    { label: "Order ID", value: orderId },
-    { label: "Payment method", value: paymentMethod },
-    { label: "Date & time", value: dateTime },
-    { label: "Total", value: totalAmount, isBold: true },
-  ];
+  const details: ConfirmationDetailRow[] =
+    detailRows ??
+    [
+      { label: "Order ID", value: orderId },
+      { label: "Payment method", value: paymentMethod },
+      { label: "Date & time", value: dateTime },
+      { label: "Total", value: totalAmount, isBold: true },
+    ];
 
   const containerVariants = {
     hidden: { opacity: 0, scale: 0.95 },
@@ -87,7 +98,7 @@ export const OrderConfirmationCard: React.FC<
           >
             {details.map((item, index) => (
               <div
-                key={item.label}
+                key={`${item.label}-${index}`}
                 className={cn(
                   "flex items-center justify-between border-b border-zinc-200 pb-3 text-xs text-zinc-500",
                   index === details.length - 1 && "border-none pb-0",
