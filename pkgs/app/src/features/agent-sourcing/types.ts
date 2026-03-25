@@ -19,6 +19,8 @@ export interface TextMessage extends AgentMessageBase {
   content: string;
   /** When true, content is still streaming (simulated). */
   isStreaming?: boolean;
+  /** User message: id of image uploaded via chat attachment. */
+  imageId?: string;
 }
 
 export interface ProductGridItem {
@@ -62,6 +64,14 @@ export interface InventoryDraftData {
   imageId?: string;
   /** Optional delivery/availability window when posting. */
   deliveryWindow?: { startAt: string; endAt: string };
+}
+
+/** Returned after posting a listing from a Glean draft; used to append the persisted green confirmation message. */
+export interface ListingPostSuccessInfo {
+  listingId: string;
+  title: string;
+  item: string;
+  priceLine: string;
 }
 
 export interface InventoryFormMessage extends AgentMessageBase {

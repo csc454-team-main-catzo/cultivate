@@ -18,6 +18,26 @@ import type {
   SourcingPlanData,
 } from "../types";
 
+/** Last image in thread so follow-up text still merges with the same photo and Post keeps the image. */
+function resolveFarmerContextImageId(
+  messages: AgentMessage[],
+  options?: { imageId?: string }
+): string | undefined {
+  if (options?.imageId) return options.imageId;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.type === "inventory_form" && m.role === "assistant") {
+      const id = (m as InventoryFormMessage).draft?.imageId;
+      if (id) return id;
+    }
+    if (m.type === "text" && m.role === "user") {
+      const id = (m as TextMessage).imageId;
+      if (id) return id;
+    }
+  }
+  return undefined;
+}
+
 const STREAM_CHUNK_MS = 35;
 
 function generateId(): string {
@@ -43,7 +63,11 @@ interface GleanAgentResponse {
 }
 
 /** Fallback when agent API fails: simple regex-based draft or empty product grid. */
-function fallbackAgentResponse(userText: string, role: UserRole): AgentResponsePayload {
+function fallbackAgentResponse(
+  userText: string,
+  role: UserRole,
+  imageId?: string
+): AgentResponsePayload {
   const lower = userText.toLowerCase();
   if (role === "farmer") {
     const weightMatch = userText.match(/(\d+)\s*(kg|lb)?/i);
@@ -52,15 +76,20 @@ function fallbackAgentResponse(userText: string, role: UserRole): AgentResponseP
     const itemMatch = lower.match(/(carrots?|tomatoes?|potatoes?|onions?|lettuce|apples?|beets?|ugly|organic)/);
     const item = itemMatch ? (itemMatch[1] === "ugly" ? "carrots" : itemMatch[1]) : "produce";
     const title = `Fresh ${item} — ${weight}${unit}`;
+    const description =
+      imageId != null
+        ? "Fresh local produce. Message for pickup window + partial fulfillment."
+        : userText.slice(0, 200);
     return {
       type: "inventory_form",
       draft: {
-        title,
-        item: item.replace(/s$/, ""),
-        description: userText.slice(0, 200),
-        weightKg: unit === "lb" ? weight * 0.453592 : weight,
+        title: imageId != null ? "Fresh local produce" : title,
+        item: imageId != null ? "produce" : item.replace(/s$/, ""),
+        description,
+        weightKg: imageId != null ? 20 : unit === "lb" ? weight * 0.453592 : weight,
         pricePerKg: 3.5,
-        unit: unit === "lb" ? "lb" : "kg",
+        unit: imageId != null ? "kg" : unit === "lb" ? "lb" : "kg",
+        ...(imageId ? { imageId } : {}),
       },
       userMessage: userText,
     };
@@ -113,6 +142,8 @@ export type PersistMessagePayload = {
   role: "user" | "assistant";
   type: "text" | "product_grid" | "inventory_form" | "strategy_options";
   content?: string;
+  /** User text message: chat image attachment id. */
+  imageId?: string;
   items?: ProductGridItem[];
   draft?: InventoryDraftData;
   options?: StrategyOptionItem[];
@@ -177,6 +208,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
                 type: "text",
                 content: String(m.content ?? ""),
                 isStreaming: false,
+                ...(m.imageId ? { imageId: String(m.imageId) } : {}),
               } as TextMessage;
             }
             if (m.type === "product_grid") {
@@ -249,15 +281,26 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
       const promptForApi = trimmed || (options?.imageId ? "Create listing from this photo" : "");
       const displayContent = trimmed || (options?.imageId ? "Create listing from this photo" : "");
 
+      const resolvedImageId =
+        role === "farmer"
+          ? resolveFarmerContextImageId(messages, options)
+          : options?.imageId;
+
       const userMsg: TextMessage = {
         id: generateId(),
         role: "user",
         type: "text",
         content: displayContent,
         createdAt: new Date(),
+        ...(resolvedImageId ? { imageId: resolvedImageId } : {}),
       };
       setMessages((prev) => [...prev, userMsg]);
-      void persistMessage({ role: "user", type: "text", content: displayContent });
+      void persistMessage({
+        role: "user",
+        type: "text",
+        content: displayContent,
+        ...(resolvedImageId ? { imageId: resolvedImageId } : {}),
+      });
       setIsThinking(true);
 
       let cancelled = false;
@@ -351,7 +394,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
         role,
         priorMessages,
       };
-      if (options?.imageId) body.imageId = options.imageId;
+      if (resolvedImageId) body.imageId = resolvedImageId;
 
       getAuthHeaders()
         .then((headers) =>
@@ -368,7 +411,10 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
           showResponse(intro, payload);
         })
         .catch(() => {
-          showResponse(defaultIntro, fallbackAgentResponse(trimmed, role));
+          showResponse(
+            defaultIntro,
+            fallbackAgentResponse(trimmed, role, resolvedImageId)
+          );
         });
 
       return cleanup;
