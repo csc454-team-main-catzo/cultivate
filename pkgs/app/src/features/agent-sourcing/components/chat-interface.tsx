@@ -6,6 +6,7 @@ import { getAgentTheme } from "../lib/theme";
 import type {
   AgentMessage,
   InventoryDraftData,
+  ListingPostSuccessInfo,
   UserRole,
   StrategyOptionsMessage,
   StrategyOptionItem,
@@ -28,10 +29,22 @@ import { useListingActions, type ParsedSheetLineItem } from "@/hooks/useListingA
 import { InteractiveCheckout, type CartItem, type Product as CheckoutProduct, type ProductUnit } from "@/components/ui/interactive-checkout";
 import { CheckoutForm } from "@/components/ui/checkout-form";
 import { OrderConfirmationCard } from "@/components/ui/order-confirmation-card";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /** First line of assistant messages that represent a completed mock checkout (used for styling). */
 const MOCK_ORDER_FIRST_LINE = "Mock order placed";
+
+/** Many mobile browsers leave `File.type` empty or use `application/octet-stream` for camera JPEGs. */
+function isChatImageAttachment(a: Attachment): boolean {
+  if (!a.file) return false;
+  const mime = (a.file.type || a.contentType || "").toLowerCase();
+  if (mime.startsWith("image/")) return true;
+  if (mime === "" || mime === "application/octet-stream") {
+    return /\.(jpe?g|png|webp|gif|heic|heif|bmp)$/i.test(a.file.name);
+  }
+  return false;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Parse "2kg of tomatoes" / "3 lb greens" from the user query        */
@@ -116,10 +129,30 @@ function textOrderToLineItems(input: string): ParsedSheetLineItem[] {
 
 /* ------------------------------------------------------------------ */
 
+export type { ListingPostSuccessInfo };
+
+/** First line of assistant messages after a farmer posts a listing from the draft card (same styling as mock order). */
+const LISTING_POSTED_FIRST_LINE = "Listing posted";
+
+function buildListingPostedMessage(info: ListingPostSuccessInfo): string {
+  return [
+    LISTING_POSTED_FIRST_LINE,
+    "",
+    info.title,
+    info.item,
+    info.priceLine,
+    "",
+    `Listing ID: ${info.listingId}`,
+  ].join("\n");
+}
+
 interface ChatInterfaceProps {
   role: UserRole | undefined;
   chatId: string | null;
-  onPostInventory?: (draft: InventoryDraftData) => void;
+  /** On success, return listing details so the chat can append the same persisted green confirmation as restaurant mock orders. */
+  onPostInventory?: (
+    draft: InventoryDraftData
+  ) => void | Promise<ListingPostSuccessInfo | undefined>;
   onClearPostError?: () => void;
 }
 
@@ -153,6 +186,25 @@ export function ChatInterface({
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length, isThinking]);
+
+  const handlePostInventory = useCallback(
+    async (draft: InventoryDraftData) => {
+      if (!onPostInventory) return;
+      const result = await onPostInventory(draft);
+      if (result?.listingId) {
+        const content = buildListingPostedMessage(result);
+        const msg: TextMessage = {
+          id: generateMsgId(),
+          role: "assistant",
+          type: "text",
+          content,
+          createdAt: new Date(),
+        };
+        pushMessages(msg);
+        void persistMessage({ role: "assistant", type: "text", content });
+      }
+    },
+    [onPostInventory, pushMessages, persistMessage]);
 
   const AgentIcon = role === "farmer" ? Tractor : ChefHat;
 
@@ -378,9 +430,7 @@ export function ChatInterface({
       }
 
       let imageId: string | undefined;
-      const imageAttachment = attachments.find(
-        (a) => a.file && a.contentType?.startsWith("image/")
-      );
+      const imageAttachment = attachments.find((a) => isChatImageAttachment(a));
       if (imageAttachment?.file) {
         try {
           const res = await uploadImage(imageAttachment.file);
@@ -590,7 +640,7 @@ export function ChatInterface({
                   chatId={chatId}
                   theme={theme}
                   AgentIcon={AgentIcon}
-                  onPostInventory={onPostInventory}
+                  onPostInventory={handlePostInventory}
                   onSelectStrategy={handleSelectStrategy}
                   cart={cart}
                   onCartChange={setCart}
@@ -714,7 +764,7 @@ interface MessageBubbleProps {
   chatId: string | null;
   theme: ReturnType<typeof getAgentTheme>;
   AgentIcon: typeof Bot;
-  onPostInventory?: (draft: InventoryDraftData) => void;
+  onPostInventory?: (draft: InventoryDraftData) => void | Promise<void>;
   onSelectStrategy?: (msg: StrategyOptionsMessage, strategyId: string) => void;
   cart: CartItem[];
   onCartChange: (cart: CartItem[]) => void;
@@ -869,7 +919,8 @@ function MessageBubble({
       </Avatar>
       <div className="min-w-0 flex-1 space-y-3">
         {message.type === "text" && (
-          message.content.startsWith(MOCK_ORDER_FIRST_LINE) ? (
+          message.content.startsWith(MOCK_ORDER_FIRST_LINE) ||
+          message.content.startsWith(LISTING_POSTED_FIRST_LINE) ? (
             <div className="rounded-2xl rounded-bl-md border border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-zinc-900 shadow-sm">
               <div className="flex items-start gap-2.5">
                 <PackageCheck className="h-5 w-5 shrink-0 text-emerald-600 mt-0.5" aria-hidden />
@@ -1026,6 +1077,7 @@ function MessageBubble({
         {message.type === "inventory_form" && (
           <InventoryDraftCard
             draft={message.draft}
+            draftMessageId={message.id}
             primaryButtonClass={theme.primaryButtonClass}
             onPost={(draft) => onPostInventory?.(draft)}
           />

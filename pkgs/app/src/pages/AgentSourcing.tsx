@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { MessageSquarePlus } from "lucide-react";
 import { useUser } from "../providers/userContext";
 import { useListingActions } from "../hooks/useListingActions";
@@ -8,10 +7,9 @@ import { GleanChatSidebar } from "../features/agent-sourcing/components/GleanCha
 import { useGleanChats } from "../features/agent-sourcing/hooks/useGleanChats";
 import { getUserRole } from "../lib/auth";
 import { Button } from "../components/ui/button";
-import type { InventoryDraftData } from "../features/agent-sourcing/types";
+import type { InventoryDraftData, ListingPostSuccessInfo } from "../features/agent-sourcing/types";
 
 export default function AgentSourcing() {
-  const navigate = useNavigate();
   const { user } = useUser();
   const { createListing } = useListingActions();
   const role = getUserRole(user ?? null) ?? "farmer";
@@ -33,9 +31,10 @@ export default function AgentSourcing() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const handlePostInventory = useCallback(
-    async (draft: InventoryDraftData) => {
+    async (draft: InventoryDraftData): Promise<ListingPostSuccessInfo | undefined> => {
       try {
         const description = (draft.description ?? "").trim() || draft.title || "Listing from Glean.";
+        const unit = (draft.unit ?? "kg") as "kg" | "lb" | "count" | "bunch";
         const body = {
           type: "supply" as const,
           title: draft.title.trim(),
@@ -43,7 +42,7 @@ export default function AgentSourcing() {
           description,
           price: draft.pricePerKg,
           qty: draft.weightKg,
-          unit: (draft.unit ?? "kg") as "kg" | "lb" | "count" | "bunch",
+          unit,
           latLng: [0, 0] as [number, number],
           ...(draft.imageId && { photos: [{ imageId: draft.imageId }] }),
           ...(draft.deliveryWindow?.startAt &&
@@ -56,14 +55,20 @@ export default function AgentSourcing() {
         };
         const created = (await createListing(body)) as { _id: string };
         setPostError(null);
-        navigate(`/listings/${created._id}`);
+        return {
+          listingId: created._id,
+          title: draft.title.trim(),
+          item: draft.item.trim(),
+          priceLine: `$${draft.pricePerKg.toFixed(2)} per ${unit} · ${draft.weightKg} ${unit}`,
+        };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to post listing.";
         console.error("Failed to post listing:", message);
         setPostError(message);
+        return undefined;
       }
     },
-    [createListing, navigate]
+    [createListing]
   );
 
   const handleCreateChat = useCallback(async () => {

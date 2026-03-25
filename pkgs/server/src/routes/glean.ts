@@ -125,6 +125,8 @@ const AppendMessageBody = v.object({
   role: v.picklist(["user", "assistant"]),
   type: v.picklist(["text", "product_grid", "inventory_form", "strategy_options"]),
   content: v.optional(v.string()),
+  /** User text message: optional image attachment id (chat upload). */
+  imageId: v.optional(v.string()),
   items: v.optional(
     v.array(
       v.object({
@@ -400,6 +402,7 @@ glean.post(
       role: body.role,
       type: body.type,
       content: body.content,
+      imageId: body.imageId,
       items: body.items,
       draft: body.draft,
       options: body.options,
@@ -589,6 +592,15 @@ glean.post(
       const role = body.role;
 
       const userId = c.get("userId") ?? undefined;
+      if (body.imageId && !userId) {
+        return c.json(
+          {
+            error:
+              "Authentication required to generate a listing draft from your photo. Please sign in and try again.",
+          },
+          401
+        );
+      }
 
       const result = await runGleanAgent({
         prompt,

@@ -97,13 +97,14 @@ export default function EditListing() {
       const qtyNum = parseInt(qty, 10);
       if (isNaN(qtyNum) || qtyNum < 1) throw new Error("Quantity must be at least 1");
       if (!item.trim()) throw new Error("Item is required");
+      if (!title.trim()) throw new Error("Title is required");
       if (!description.trim()) throw new Error("Description is required");
       if (listing.type === "supply" && (isNaN(priceNum) || priceNum < 0)) {
         throw new Error("Price per unit must be 0 or greater");
       }
 
       const body: Parameters<typeof updateListing>[1] = {
-        title: title.trim() || undefined,
+        title: title.trim(),
         item: item.trim(),
         description: description.trim(),
         price: isNaN(priceNum) || priceNum < 0 ? 0 : priceNum,
@@ -174,18 +175,19 @@ export default function EditListing() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {listing.type === "demand" && (
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="input-field"
-              maxLength={150}
-            />
-          </div>
-        )}
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
+            Title <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. Fresh Tomatoes"
+            className="input-field"
+            maxLength={150}
+          />
+        </div>
         <div>
           <label className="block text-sm font-medium text-zinc-700 mb-1">
             Item <span className="text-red-500">*</span>

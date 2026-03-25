@@ -137,6 +137,17 @@ export interface GleanAgentResponse {
   payload: GleanAgentPayload | null;
 }
 
+/** Keep chat-upload image on the draft when vision fails or LLM/fallback runs without image fields. */
+function applyFarmerUploadedImage(
+  draft: DraftListing,
+  req: GleanAgentRequest
+): DraftListing {
+  if (req.role === "farmer" && req.imageId) {
+    return { ...draft, imageId: req.imageId };
+  }
+  return draft;
+}
+
 const MATCH_STOP_WORDS = new Set([
   "i", "need", "want", "looking", "for", "some", "by", "the", "a", "an",
   "kg", "lb", "and", "or", "to", "this", "week", "next", "please", "can", "you",
@@ -277,8 +288,31 @@ Reply with a JSON object only: { "introText": "your sentence here" }. No other t
 
 const RESTAURANT_ANSWER_FROM_LISTING_SYSTEM = `You are a Glean assistant. The user asked a follow-up question about a specific listing. Use ONLY the listing title and description below to answer their question in one short sentence. If the listing says "contact for delivery" or similar, say that. Reply with a JSON object only: { "introText": "your one-sentence answer here" }. No other text.`;
 
-/** Fallback draft when LLM is unavailable (farmer). */
-function fallbackDraftFromPrompt(prompt: string): { introText: string; draft: DraftListing } {
+/** Same default copy as POST /listings/draft-from-image when produce type is unknown. */
+const DRAFT_FROM_IMAGE_FALLBACK = {
+  title: "Fresh local produce",
+  item: "produce",
+  description:
+    "Fresh local produce. Message for pickup window + partial fulfillment.",
+  weightKg: 20,
+  pricePerKg: 3.5,
+  unit: "kg" as const,
+};
+
+/** Fallback draft when LLM is unavailable (farmer). Never use chat placeholder text as description when a photo is attached. */
+function fallbackDraftFromPrompt(
+  prompt: string,
+  req: GleanAgentRequest
+): { introText: string; draft: DraftListing } {
+  if (req.role === "farmer" && req.imageId) {
+    return {
+      introText:
+        "Here's your draft based on Toronto wholesale market prices. Confirm weight and price, then tap Post to list it.",
+      draft: {
+        ...DRAFT_FROM_IMAGE_FALLBACK,
+      },
+    };
+  }
   const lower = prompt.toLowerCase();
   const weightMatch = prompt.match(/(\d+)\s*(kg|lb)?/i);
   const weight = weightMatch ? Number(weightMatch[1]) : 20;
@@ -406,8 +440,28 @@ export async function runGleanAgent(req: GleanAgentRequest): Promise<GleanAgentR
     let imageFields: Awaited<ReturnType<typeof getDraftSuggestedFieldsFromImage>> | null = null;
     try {
       imageFields = await getDraftSuggestedFieldsFromImage(req.imageId, req.userId);
-    } catch {
-      // 404/403 or vision failure: fall through to text-only draft
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[Glean] getDraftSuggestedFieldsFromImage failed:", msg);
+    }
+    if (!imageFields) {
+      return {
+        introText:
+          "We couldn't analyze your photo automatically. Edit the fields below if needed, then tap Post — your photo will still be included.",
+        payload: {
+          type: "inventory_form",
+          draft: {
+            title: DRAFT_FROM_IMAGE_FALLBACK.title,
+            item: DRAFT_FROM_IMAGE_FALLBACK.item,
+            description: DRAFT_FROM_IMAGE_FALLBACK.description,
+            weightKg: DRAFT_FROM_IMAGE_FALLBACK.weightKg,
+            pricePerKg: DRAFT_FROM_IMAGE_FALLBACK.pricePerKg,
+            unit: DRAFT_FROM_IMAGE_FALLBACK.unit,
+            imageId: req.imageId,
+          },
+          userMessage: trimmed,
+        },
+      };
     }
     if (imageFields && client) {
       try {
@@ -465,7 +519,7 @@ export async function runGleanAgent(req: GleanAgentRequest): Promise<GleanAgentR
         imageId: req.imageId,
       };
       return {
-        introText: "Here's your draft from the photo. Price is based on Toronto wholesale data. Fill in weight and delivery window, then tap Post.",
+        introText: "Here's your draft from the photo. Price is based on Toronto wholesale data. Double check the details, then tap Post.",
         payload: { type: "inventory_form", draft, userMessage: trimmed },
       };
     }
@@ -480,14 +534,14 @@ export async function runGleanAgent(req: GleanAgentRequest): Promise<GleanAgentR
         imageId: req.imageId,
       };
       return {
-        introText: "Here's your draft from the photo. Price is based on Toronto wholesale data. Fill in weight and delivery window, then tap Post.",
+        introText: "Here's your draft from the photo. Price is based on Toronto wholesale data. Double check the details, then tap Post.",
         payload: { type: "inventory_form", draft, userMessage: trimmed },
       };
     }
   }
 
-  // Farmer: LLM to extract draft
-  if (client) {
+  // Farmer (text-only listing) or other draft flows: LLM — never use for photo listings (those are handled above).
+  if (client && !(role === "farmer" && req.imageId)) {
     try {
       const context = priorMessages.length > 0
         ? `Previous messages (for context):\n${priorMessages.map((m) => `${m.role}: ${m.content ?? ""}`).join("\n")}\n\nCurrent user message:`
@@ -510,20 +564,24 @@ export async function runGleanAgent(req: GleanAgentRequest): Promise<GleanAgentR
             d.deliveryWindow?.startAt && d.deliveryWindow?.endAt
               ? { startAt: d.deliveryWindow.startAt, endAt: d.deliveryWindow.endAt }
               : undefined;
-          const draft: DraftListing = {
-            title: String(d.title ?? "").slice(0, 150) || "Fresh produce",
-            item: String(d.item ?? "produce").slice(0, 100),
-            description: d.description != null ? String(d.description).slice(0, 500) : undefined,
-            weightKg: Number(d.weightKg) || 20,
-            pricePerKg: Number(d.pricePerKg) || 2.5,
-            unit: ["kg", "lb", "count", "bunch"].includes(d.unit as string) ? d.unit : "kg",
-            ...(deliveryWindow && { deliveryWindow }),
-          };
+          const draft: DraftListing = applyFarmerUploadedImage(
+            {
+              title: String(d.title ?? "").slice(0, 150) || "Fresh produce",
+              item: String(d.item ?? "produce").slice(0, 100),
+              description: d.description != null ? String(d.description).slice(0, 500) : undefined,
+              weightKg: Number(d.weightKg) || 20,
+              pricePerKg: Number(d.pricePerKg) || 2.5,
+              unit: ["kg", "lb", "count", "bunch"].includes(d.unit as string) ? d.unit : "kg",
+              ...(deliveryWindow && { deliveryWindow }),
+            },
+            req
+          );
           const baseIntro =
             typeof parsed.introText === "string" ? parsed.introText.trim() : "Here's your draft. Confirm weight and price, then tap Post to list it.";
-          const introText = draft.imageId
-            ? baseIntro
-            : `${baseIntro} Consider adding a photo to your listing for better visibility.`;
+          const introText =
+            req.role === "farmer" && req.imageId
+              ? baseIntro
+              : `${baseIntro} Consider adding a photo to your listing for better visibility.`;
           return {
             introText,
             payload: { type: "inventory_form", draft, userMessage: trimmed },
@@ -537,12 +595,16 @@ export async function runGleanAgent(req: GleanAgentRequest): Promise<GleanAgentR
     }
   }
 
-  const fallback = fallbackDraftFromPrompt(trimmed);
-  const fallbackIntro = fallback.draft.imageId
-    ? fallback.introText
-    : `${fallback.introText} Consider adding a photo for better visibility.`;
+  const fallback = fallbackDraftFromPrompt(trimmed, req);
+  const draft = applyFarmerUploadedImage(fallback.draft, req);
+  const fallbackIntro =
+    req.role === "farmer" && req.imageId
+      ? fallback.introText
+      : draft.imageId
+        ? fallback.introText
+        : `${fallback.introText} Consider adding a photo for better visibility.`;
   return {
     introText: fallbackIntro,
-    payload: { type: "inventory_form", draft: fallback.draft, userMessage: trimmed },
+    payload: { type: "inventory_form", draft, userMessage: trimmed },
   };
 }
