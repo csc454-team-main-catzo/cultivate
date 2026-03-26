@@ -93,6 +93,14 @@ function matchRequestedAmount(
   );
 }
 
+function extractMongoListingIdFromAllocId(id: string): string | null {
+  // Old persisted optimizer allocations sometimes used id like:
+  // "alloc-<idx>-<listingId>" but lost the explicit listingId field during persistence.
+  // Recover the Mongo ObjectId when present so /listings/:id links work.
+  const m = String(id).match(/\balloc-\d+-([a-f\d]{24})\b/i);
+  return m?.[1] ?? null;
+}
+
 /** Fix common typos like "2kg or cucumbers" → "2kg of cucumbers" before parsing. */
 function normalizeOrderTextForParsing(input: string): string {
   return input.replace(
@@ -1101,9 +1109,11 @@ function MessageBubble({
             <InteractiveCheckout
               products={message.items.map((item, index): CheckoutProduct => {
                 const match = matchRequestedAmount(item.title, item.item, requested);
+                const recoveredListingId =
+                  item.listingId || extractMongoListingIdFromAllocId(item.id);
                 return {
                   id: item.id || `agent-${index}`,
-                  listingId: item.listingId || item.id,
+                  listingId: recoveredListingId || item.id,
                   name: item.title,
                   price: item.price,
                   category: item.item,

@@ -127,6 +127,7 @@ const AppendMessageBody = v.object({
     v.array(
       v.object({
         id: v.string(),
+        listingId: v.optional(v.string()),
         title: v.string(),
         item: v.string(),
         description: v.optional(v.string()),
@@ -136,6 +137,8 @@ const AppendMessageBody = v.object({
         farmerName: v.string(),
         farmerId: v.string(),
         imageUrl: v.optional(v.string()),
+        matchType: v.optional(v.string()),
+        matchScore: v.optional(v.number()),
       })
     )
   ),

@@ -15,6 +15,10 @@ export interface IGleanProductGridItem {
   farmerName: string;
   farmerId: string;
   imageUrl?: string;
+  /** "exact" | "substitute" | "cluster" etc. when sourced via optimizer. */
+  matchType?: string;
+  /** 0–1 score indicating how well this product matches the requested item. */
+  matchScore?: number;
 }
 
 export interface IGleanInventoryDraftData {
@@ -124,6 +128,8 @@ const GleanProductGridItemSchema = new Schema<IGleanProductGridItem>(
     farmerName: { type: String, required: true },
     farmerId: { type: String, required: true },
     imageUrl: { type: String, required: false },
+    matchType: { type: String, required: false },
+    matchScore: { type: Number, required: false },
   },
   { _id: false }
 );
