@@ -136,6 +136,8 @@ const AppendMessageBody = v.object({
         farmerName: v.string(),
         farmerId: v.string(),
         imageUrl: v.optional(v.string()),
+        matchType: v.optional(v.string()),
+        matchScore: v.optional(v.number()),
       })
     )
   ),
