@@ -85,10 +85,12 @@ export default function ListingDetail() {
     (text: string) =>
       getMessageSuggestion(text, {
         itemName: listing?.item ?? "",
-        qty: String(listing?.qty ?? ""),
-        price: String(listing?.price ?? ""),
+        qty: qty.trim() ? qty : String(listing?.qty ?? ""),
+        unit,
+        price: price.trim() ? price : String(listing?.price ?? ""),
+        priceUnit: unit,
       }),
-    [listing?.item, listing?.qty, listing?.price]
+    [listing?.item, listing?.qty, listing?.price, qty, unit, price]
   );
 
   useEffect(() => {

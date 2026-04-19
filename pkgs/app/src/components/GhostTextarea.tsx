@@ -71,6 +71,9 @@ export default function GhostTextarea({
   const [suppressedAt, setSuppressedAt] = useState<string | null>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  /** So we only debounce on typing, not when unit/price context (getSuggestion) changes. */
+  const prevValueRef = useRef<string | undefined>(undefined)
+  const prevGetSuggestionRef = useRef(getSuggestion)
 
   // Auto-grow: keep the textarea tall enough to show all content without a
   // scrollbar, which is required for the overlay to stay in sync.
@@ -81,17 +84,31 @@ export default function GhostTextarea({
     el.style.height = `${el.scrollHeight}px`
   }, [value])
 
-  // Compute ghost text (debounced).
+  // Compute ghost text: immediate when suggestion context changes (e.g. unit
+  // toggle); debounced when only the typed value changes.
   useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
+
     if (!getSuggestion) {
       setGhost("")
+      prevValueRef.current = value
+      prevGetSuggestionRef.current = getSuggestion
       return
     }
 
-    // Still at the suppressed prefix → keep ghost hidden.
-    if (suppressedAt !== null && value === suppressedAt) {
+    const suggestionContextChanged = prevGetSuggestionRef.current !== getSuggestion
+    prevGetSuggestionRef.current = getSuggestion
+
+    // New context (unit, price, listing fields) → show a fresh hint even if
+    // the user had dismissed the previous one with Esc.
+    if (suggestionContextChanged) {
+      setSuppressedAt(null)
+    }
+
+    // Still at the suppressed prefix → keep ghost hidden (unless context changed above).
+    if (suppressedAt !== null && value === suppressedAt && !suggestionContextChanged) {
       setGhost("")
+      prevValueRef.current = value
       return
     }
     // User moved away from the suppressed prefix → lift suppression.
@@ -99,12 +116,21 @@ export default function GhostTextarea({
       setSuppressedAt(null)
     }
 
-    // Empty text gets a faster response so it feels instant on focus.
-    const delay = value.length === 0 ? 80 : debounceMs
-    debounceTimer.current = setTimeout(() => {
+    const valueChanged = prevValueRef.current !== value
+    prevValueRef.current = value
+
+    if (suggestionContextChanged) {
       const suggestion = getSuggestion(value)
       setGhost(suggestion ?? "")
-    }, delay)
+    }
+
+    if (valueChanged && !suggestionContextChanged) {
+      const delay = value.length === 0 ? 80 : debounceMs
+      debounceTimer.current = setTimeout(() => {
+        const suggestion = getSuggestion(value)
+        setGhost(suggestion ?? "")
+      }, delay)
+    }
 
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
